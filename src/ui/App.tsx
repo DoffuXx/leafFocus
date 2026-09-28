@@ -133,7 +133,8 @@ export default function App({ treeFile }: { treeFile: string }) {
       setMode('browsing');
     } catch (err) {
       if (controller.signal.aborted) {
-        setNotice('Cancelled — your question is kept');
+        // a regenerate (Ctrl+R) has no typed question to keep
+        setNotice(buffer.trim() ? 'Cancelled — your question is kept' : 'Cancelled');
         setMode('browsing');
         return;
       }
@@ -232,7 +233,11 @@ export default function App({ treeFile }: { treeFile: string }) {
 
   /** Global shortcuts available while browsing (focused or not). Returns true when the key was handled. */
   function handleShortcutKey(input: string, key: Key): boolean {
-    if (key.ctrl && input === 'e') {
+    // Ctrl+Q, not a bare `q`: that would quit on the first letter of a question like "quick sort?"
+    if (key.ctrl && input === 'q') {
+      saveIfNonEmpty(treeFile, tree);
+      exit();
+    } else if (key.ctrl && input === 'e') {
       setNotice(`Exported to ${exportSession(treeFile, tree)}`);
     } else if (key.ctrl && input === 'r') {
       regenerate();
@@ -273,7 +278,7 @@ export default function App({ treeFile }: { treeFile: string }) {
     }
   }
 
-  /** Conversation view: ask a follow-up, focus a segment, go back, or quit. */
+  /** Conversation view: ask a follow-up, focus a segment, or go back. */
   function handleConversationKey(input: string, key: Key): void {
     if (key.return) {
       if (buffer.trim()) {
@@ -291,9 +296,6 @@ export default function App({ treeFile }: { treeFile: string }) {
     } else if (key.escape) {
       if (buffer.length > 0) setBuffer('');
       else goBack();
-    } else if (input === 'q' && buffer.length === 0) {
-      saveIfNonEmpty(treeFile, tree);
-      exit();
     } else {
       const text = typedText(input, key);
       if (text) setBuffer((b) => b + text);
@@ -307,7 +309,7 @@ export default function App({ treeFile }: { treeFile: string }) {
       return;
     }
     if (mode === 'error') {
-      if (input === 'q') exit();
+      if (key.ctrl && input === 'q') exit();
       else if (key.escape || key.return) setMode('browsing');
       return;
     }
@@ -363,7 +365,7 @@ export default function App({ treeFile }: { treeFile: string }) {
           <Box borderStyle="round" borderColor="red" paddingX={1}>
             <Text color="red">Error: {error}</Text>
           </Box>
-          <KeyHints hints={[['Esc/Enter', 'back (your question is kept)'], ['q', 'quit']]} />
+          <KeyHints hints={[['Esc/Enter', buffer.trim() ? 'back (your question is kept)' : 'back'], ['Ctrl+Q', 'quit']]} />
         </>
       );
     }
@@ -398,8 +400,8 @@ export default function App({ treeFile }: { treeFile: string }) {
             {visible.map(({ node, depth }, i) => (
               <SelectRow key={node.id} selected={start + i === outline.cursor}>
                 {'  '.repeat(depth)}
-                {node.segment ? <Text dimColor>[{node.segment}] </Text> : null}
                 {node.question}
+                {node.segment ? <Text dimColor> [on: {node.segment}]</Text> : null}
               </SelectRow>
             ))}
             {outlineMatches.length === 0 ? <Text dimColor>(no matching leaves)</Text> : null}
@@ -419,6 +421,8 @@ export default function App({ treeFile }: { treeFile: string }) {
             {pickingChildren.map((n, i) => (
               <SelectRow key={n.id} selected={i === pickCursor}>
                 {n.question}
+                {/* regenerated answers share their question: the paragraph tells them apart */}
+                <Text dimColor> — {n.paragraph}</Text>
               </SelectRow>
             ))}
           </Box>
@@ -440,11 +444,13 @@ export default function App({ treeFile }: { treeFile: string }) {
             </Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
+            {notice ? <Text color="green">✓ {notice}</Text> : null}
             <InputBox value={buffer} placeholder="Ask about this segment…" />
             <KeyHints
               hints={[
                 ['Tab/↑↓', 'retarget'],
-                (buffer.trim() !== '' || (leafCounts[segmentCursor] ?? 0) > 0) && ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
+                (Boolean(buffer.trim()) || (leafCounts[segmentCursor] ?? 0) > 0) &&
+                  ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
                 ['Esc', 'back'],
               ]}
             />
@@ -484,7 +490,11 @@ export default function App({ treeFile }: { treeFile: string }) {
         ) : (
           <Box borderStyle="round" paddingX={2} paddingY={1} flexDirection="column" alignItems="center">
             <Text color="green">{ASCII_LEAF}</Text>
-            <Text dimColor>(nothing here yet — type your question below)</Text>
+            <Text dimColor>
+              {currentNode?.children.length
+                ? '(Enter to open your questions, or type a new one below)'
+                : '(nothing here yet — type your question below)'}
+            </Text>
           </Box>
         )}
         <Box marginTop={1} flexDirection="column">
@@ -494,13 +504,14 @@ export default function App({ treeFile }: { treeFile: string }) {
             hints={[
               segments.length > 0 && ['Tab/↑↓', 'segment'],
               segments.length > 0 && ['Enter', 'focus'],
+              segments.length === 0 && Boolean(currentNode?.children.length) && !buffer && ['Enter', 'open'],
               (buffer.length > 0 || path.length > 1) && ['Esc', buffer ? 'clear' : 'back'],
               siblings.length > 1 && ['←/→', 'other answers'],
               ['Ctrl+T', 'outline'],
               !isRoot && ['Ctrl+R', 'regenerate'],
               !isRoot && ['Ctrl+D', 'delete'],
               ['Ctrl+E', 'export'],
-              !buffer && ['q', 'quit'],
+              ['Ctrl+Q', 'quit'],
             ]}
           />
           {segments.length > 0 ? (
