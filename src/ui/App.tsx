@@ -287,7 +287,7 @@ export default function App({ treeFile }: { treeFile: string }) {
     <Box flexDirection="column" marginBottom={1} width={columns}>
       <Box justifyContent="space-between">
         <Text bold color="cyan">
-          LeafFocus
+          leafFocus
         </Text>
         <Text dimColor>
           {leafHere > 0 ? `${leafCountLabel(leafHere)} here · ` : ''}
