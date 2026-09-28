@@ -1,4 +1,7 @@
+import { useEffect, useState, type ReactNode } from 'react';
 import { Box, Text } from 'ink';
+
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 /** A key and what it does, e.g. `['Ctrl+T', 'outline']`. */
 export type KeyHint = readonly [key: string, label: string];
@@ -33,4 +36,23 @@ export function InputBox({ value, placeholder }: { value: string; placeholder: s
       </Text>
     </Box>
   );
+}
+
+/** One row of a picker list: `> ` and green when selected, indented otherwise; truncated to one line. */
+export function SelectRow({ selected, children }: { selected: boolean; children: ReactNode }) {
+  return (
+    <Text color={selected ? 'green' : undefined} wrap="truncate-end">
+      {selected ? '> ' : '  '}
+      {children}
+    </Text>
+  );
+}
+
+export function Spinner() {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setFrame((f) => (f + 1) % SPINNER_FRAMES.length), 80);
+    return () => clearInterval(id);
+  }, []);
+  return <Text color="cyan">{SPINNER_FRAMES[frame]}</Text>;
 }

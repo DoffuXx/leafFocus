@@ -6,3 +6,8 @@
 export function toSingleLine(input: string): string {
   return input.replace(/\r\n|[\r\n\t]/g, ' ').replace(/[\u0000-\u001f\u007f]/g, '');
 }
+
+/** Text a keypress adds to an input buffer: `input` flattened by {@link toSingleLine}, or '' for Ctrl/Meta chords. */
+export function typedText(input: string, key: { ctrl: boolean; meta: boolean }): string {
+  return input && !key.ctrl && !key.meta ? toSingleLine(input) : '';
+}
