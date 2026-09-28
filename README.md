@@ -8,6 +8,7 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 
 [![CI](https://github.com/DoffuXx/leafFocus/actions/workflows/ci.yml/badge.svg)](https://github.com/DoffuXx/leafFocus/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Vibecoded](https://img.shields.io/badge/vibecoded-%E2%9C%A8-blueviolet)
 
 ## Features
 
