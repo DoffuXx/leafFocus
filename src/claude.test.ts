@@ -183,7 +183,8 @@ describe('getParagraph (fake claude CLI on PATH)', () => {
 
   test('keeps a multibyte character intact when stdout splits it across chunks', async () => {
     const result = await withFakeClaude(
-      `const line = Buffer.from(JSON.stringify({ type: 'result', is_error: false, structured_output: { segments: ['café 🌿'] } }) + '\\n');
+      `const event = { type: 'result', is_error: false, structured_output: { segments: ['café 🌿'] } };
+const line = Buffer.from(JSON.stringify(event) + '\\n');
 const cut = line.indexOf(Buffer.from('é')) + 1;
 process.stdout.write(line.subarray(0, cut));
 await Bun.sleep(50);
