@@ -48,5 +48,6 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 
 Each run gets its own tree file under `.segment-tree/sessions/<id>.json`. `bun run dev --resume`
 lists past sessions (by their first question) to pick up where you left off; a plain `bun run dev`
-always starts empty. Every call to the `claude` CLI is also appended as a JSON line to
-`.segment-tree.log` for debugging.
+always starts empty. Every call to the `claude` CLI is also appended as JSON lines to
+`.segment-tree.log` for debugging: `request`, then `response` or `error`, sharing a `requestId`
+(with `model` and `durationMs`). Logging is best-effort — a failed write never breaks a request.
