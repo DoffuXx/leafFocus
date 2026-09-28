@@ -22,6 +22,7 @@ Set via environment variables or a `.env` file (Bun loads it automatically) — 
 | ---------------------- | ----------- | --------------------------------------------------------------------------------------- |
 | `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers               |
 | `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit   |
+| `LEAFFOCUS_INSTRUCTIONS` | none      | Standing instructions added to every answer's system prompt, e.g. `Answer in French.`   |
 
 One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
@@ -39,6 +40,9 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 - type + `Enter` — ask/continue from the highlighted segment (adds a new branch)
 - `Backspace` (input empty) — go back up
 - `q` (input empty) — save and quit
+- `←` / `→` — switch between answers asked from the same segment (e.g. regenerated ones)
+- `Ctrl+T` — outline of the whole session: type to filter, `↑`/`↓` + `Enter` to jump, `Esc` to close
+- `Esc` while thinking — cancel the request (your question is kept)
 - `Ctrl+R` — regenerate the current leaf (re-asks its question; the new answer is added as a sibling, the old one is kept)
 - `Ctrl+D` — delete the current leaf and everything under it (asks y/n first)
 - `Ctrl+E` — export the whole session as Markdown to `.segment-tree/exports/<id>.md`
@@ -48,5 +52,6 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 
 Each run gets its own tree file under `.segment-tree/sessions/<id>.json`. `bun run dev --resume`
 lists past sessions (by their first question) to pick up where you left off; a plain `bun run dev`
-always starts empty. Every call to the `claude` CLI is also appended as a JSON line to
+always starts empty. Each answer records how long it took and what it cost (shown next to its question; the header shows the
+session total). Every call to the `claude` CLI is also appended as a JSON line to
 `.segment-tree.log` for debugging.

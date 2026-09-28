@@ -1,17 +1,18 @@
 import { spawn } from 'node:child_process';
 import { z } from 'zod';
-import { config } from './config.js';
+import { config, type Config } from './config.js';
 import { appendLog } from './log.js';
-import type { ParagraphResult } from './types.js';
+import type { ParagraphResult, Usage } from './types.js';
 
 /**
  * Runs `claude` with stdin explicitly closed. `child_process.execFile` leaves the child's
  * stdin open as an unclosed pipe by default, which makes the CLI sit waiting on stdin before
  * eventually failing — closing it immediately avoids that stall.
+ * Aborting `signal` kills the child and rejects with an `AbortError`.
  */
-function runClaude(args: string[]): Promise<string> {
+function runClaude(args: string[], signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn('claude', args, { stdio: ['ignore', 'pipe', 'pipe'], signal });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (chunk: Buffer) => {
@@ -55,6 +56,8 @@ interface CliResultEvent {
   is_error: boolean;
   result?: string;
   structured_output?: unknown;
+  duration_ms?: number;
+  total_cost_usd?: number;
 }
 
 /**
@@ -96,19 +99,27 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
     throw new Error('none of the returned segments appear verbatim in the paragraph');
   }
 
-  return { paragraph, segments: verbatimSegments };
+  const usage: Usage | undefined =
+    typeof resultEvent.duration_ms === 'number' && typeof resultEvent.total_cost_usd === 'number'
+      ? { durationMs: resultEvent.duration_ms, costUsd: resultEvent.total_cost_usd }
+      : undefined;
+
+  return { paragraph, segments: verbatimSegments, ...(usage ? { usage } : {}) };
 }
 
 /**
- * CLI args for one headless call. `model` (from config, `LEAFFOCUS_MODEL`) is passed as `--model`;
- * when unset the CLI's default model is used.
+ * CLI args for one headless call. `model` is passed as `--model` (unset = CLI default) and
+ * `instructions` is appended to the system prompt; both default to the app config.
  *
  * --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
  * --max-turns 3 (not 1): forcing structured output via --json-schema makes the CLI
  * emit its answer through an internal tool call, which alone can exceed 1 turn —
  * observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
  */
-export function buildClaudeArgs(prompt: string, model: string | undefined = config.model): string[] {
+export function buildClaudeArgs(
+  prompt: string,
+  { model, instructions }: Pick<Config, 'model' | 'instructions'> = config
+): string[] {
   const args = [
     '-p',
     prompt,
@@ -117,7 +128,7 @@ export function buildClaudeArgs(prompt: string, model: string | undefined = conf
     '--json-schema',
     JSON.stringify(PARAGRAPH_JSON_SCHEMA),
     '--append-system-prompt',
-    SYSTEM_PROMPT,
+    instructions ? `${SYSTEM_PROMPT}\n\n${instructions}` : SYSTEM_PROMPT,
     '--max-turns',
     '3',
     '--allowedTools',
@@ -126,16 +137,20 @@ export function buildClaudeArgs(prompt: string, model: string | undefined = conf
   return model ? [...args, '--model', model] : args;
 }
 
-/** Shells out to the `claude` CLI in headless mode and returns a validated paragraph + segments. */
+/**
+ * Shells out to the `claude` CLI in headless mode and returns a validated paragraph + segments.
+ * Pass `signal` to allow cancelling the call mid-flight.
+ */
 export async function getParagraph(
   parent: { paragraph: string; segment: string | null } | null,
-  question: string
+  question: string,
+  signal?: AbortSignal
 ): Promise<ParagraphResult> {
   const prompt = buildPrompt(parent, question);
   appendLog({ event: 'request', question, prompt });
 
   try {
-    const stdout = await runClaude(buildClaudeArgs(prompt));
+    const stdout = await runClaude(buildClaudeArgs(prompt), signal);
 
     const result = parseParagraphOutput(stdout);
     appendLog({ event: 'response', question, stdout, segmentCount: result.segments.length });
