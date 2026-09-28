@@ -45,37 +45,40 @@ Release. No Bun needed to run them — only the `claude` CLI. Build locally with
 
 ## Configuration
 
-Set in a YAML file, environment variables, or a `.env` file (Bun loads it automatically). Env vars
-override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
+Set with command-line flags, environment variables, a `.env` file (Bun loads it automatically), or a
+YAML file. Flags override env vars, which override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
 `~/.config/leaffocus/config.yaml` (global) — copy `leaffocus.example.yaml` or `.env.example`:
 
 ```bash
 cp leaffocus.example.yaml leaffocus.yaml   # or: cp .env.example .env
 ```
 
-| YAML key     | Variable               | Default     | Effect                                                                                |
-| ------------ | ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `model`      | `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers             |
-| `fullscreen` | `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
-| `instructions` | `LEAFFOCUS_INSTRUCTIONS` | none    | Standing instructions added to every answer, e.g. `Answer in French.`                 |
+| Flag                  | YAML key       | Variable                 | Default     | Effect                                                                                |
+| --------------------- | -------------- | ------------------------ | ----------- | ------------------------------------------------------------------------------------- |
+| `-m, --model`         | `model`        | `LEAFFOCUS_MODEL`        | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers             |
+| `-f, --fullscreen`    | `fullscreen`   | `LEAFFOCUS_FULLSCREEN`   | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
+| `-i, --instructions`  | `instructions` | `LEAFFOCUS_INSTRUCTIONS` | none        | Standing instructions added to every answer, e.g. `Answer in French.`                 |
 
-One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
+One-off: `bun run dev --fullscreen` or `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
 ## Usage
 
 ```bash
 bun run dev            # start a brand-new session (fresh tree)
-bun run dev --resume   # pick a past session to continue, like `claude -r`
+bun run dev --resume   # pick a past session to continue, like `claude -r` (short: -r)
+bun run dev --help     # list all flags (short: -h); --version / -v prints the version
 ```
+
+With a release binary, use `leaffocus [flags]` instead of `bun run dev`.
 
 ### Header
 
-- **Plant** — a vine across the top with one small ASCII leaf per leaf in the session, alternating
-  above and below the stem, so it grows as your tree does (`+N` when they no longer fit).
-- **Trail** — the path from `root` to where you are, drawn as a vine growing to the right: a veined ASCII
-  leaf per level (the current one filled in) with its label below, and the current leaf branching
-  out to its next leaves (`(n)` = how many leaves each of those has). When the path gets too wide,
-  old levels fold into `…N`.
+- **Vine** — one stem through the middle growing to the right like a tree branch: a veined ASCII
+  leaf per level of the path from `root` to where you are (the current one filled in), alternating
+  above and below the stem with its label on the outside, then one small leaf per leaf in the
+  session, so it grows as your tree does (`+N` when they no longer fit), and finally the current
+  leaf branching out to its next leaves (`(n)` = how many leaves each of those has). When the path
+  gets too wide, old levels fold into `…N` on the stem.
 
 ### Keys
 
@@ -123,17 +126,18 @@ a request.
 ## Project structure
 
 ```
-index.tsx           # entry point, parses --resume
+index.tsx           # entry point
 src/
+  cli.ts            # command-line flags (--help, --version, --resume, config overrides)
   claude.ts         # prompt building, CLI call, output parsing/validation
-  config.ts         # LEAFFOCUS_* env configuration
+  config.ts         # flags / LEAFFOCUS_* env / YAML configuration
   export.ts         # Markdown export
   input.ts          # flattens typed/pasted input to one line
   outline.ts        # flattened/filtered tree for the Ctrl+T outline
   tree.ts           # tree data model + load/save
   session.ts        # session files + resume picker data
   paragraph.ts      # splits a paragraph into plain/segment spans for rendering
-  trail.ts          # ASCII header: growing leaf plant + leaf trail
+  trail.ts          # ASCII header: one vine (leaf trail + growing plant)
   log.ts            # JSON-lines debug log
   types.ts          # shared types
   ui/Root.tsx       # session picker vs. running app

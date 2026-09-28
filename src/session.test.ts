@@ -59,9 +59,9 @@ describe('listSessions', () => {
     expect(listSessions(tmpDir)[0]?.title).toBe('(untitled)');
   });
 
-  test('skips unreadable (corrupt) session files instead of throwing', () => {
+  test('skips unreadable session files instead of failing the whole list', () => {
     const good = saveSession('good question', 1_000);
-    writeFileSync(newSessionFile(tmpDir), '{"nodes":', 'utf-8');
+    writeFileSync(newSessionFile(tmpDir), '{ not json');
 
     expect(listSessions(tmpDir).map((s) => s.file)).toEqual([good]);
   });

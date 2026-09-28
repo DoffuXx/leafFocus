@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Box, Text, useInput, useWindowSize } from 'ink';
 import App, { leafCountLabel } from './App.js';
+import { KeyHints } from './widgets.js';
 import { config } from '../config.js';
 import { listSessions, newSessionFile, type SessionSummary } from '../session.js';
 
@@ -45,13 +46,19 @@ export default function Root({ resume }: { resume: boolean }) {
   if (phase === 'picking') {
     return frame(
       <Box flexDirection="column">
-        <Text bold>Resume a session — ↑/↓ + Enter to pick, Esc for a new one:</Text>
-        {sessions.map((s, i) => (
-          <Text key={s.file} color={i === cursor ? 'green' : undefined}>
-            {i === cursor ? '> ' : '  '}
-            {s.updatedAt.toLocaleString()} — {s.title} <Text dimColor>({leafCountLabel(s.leafCount)})</Text>
+        <Box borderStyle="round" borderColor="green" flexDirection="column" paddingX={1}>
+          <Text bold color="green">
+            Resume a session
           </Text>
-        ))}
+          {sessions.map((s, i) => (
+            <Text key={s.file} color={i === cursor ? 'green' : undefined} wrap="truncate-end">
+              {i === cursor ? '> ' : '  '}
+              <Text dimColor>{s.updatedAt.toLocaleString()}</Text> {s.title}{' '}
+              <Text dimColor>({leafCountLabel(s.leafCount)})</Text>
+            </Text>
+          ))}
+        </Box>
+        <KeyHints hints={[['↑/↓', 'select'], ['Enter', 'resume'], ['Esc', 'new session']]} />
       </Box>
     );
   }
