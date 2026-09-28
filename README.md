@@ -48,7 +48,8 @@ Release. No Bun needed to run them — only the `claude` CLI. Build locally with
 
 Set with command-line flags, environment variables, a `.env` file (Bun loads it automatically), or a
 YAML file. Flags override env vars, which override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
-`~/.config/leaffocus/config.yaml` (global) — copy `leaffocus.example.yaml` or `.env.example`:
+`~/.config/leaffocus/config.yaml` (global; `$XDG_CONFIG_HOME/leaffocus/config.yaml` if set). Installed a binary? Run
+`leaffocus --init` to create the global file from the example, then edit it. From source, copy `leaffocus.example.yaml` or `.env.example`:
 
 ```bash
 cp leaffocus.example.yaml leaffocus.yaml   # or: cp .env.example .env
@@ -130,7 +131,7 @@ a request.
 ```
 index.tsx           # entry point
 src/
-  cli.ts            # command-line flags (--help, --version, --resume, config overrides)
+  cli.ts            # command-line flags (--help, --version, --init, --resume, config overrides)
   claude.ts         # prompt building, CLI call, output parsing/validation
   config.ts         # flags / LEAFFOCUS_* env / YAML configuration
   export.ts         # Markdown export
