@@ -10,7 +10,7 @@ const MAX_HEADING_LEVEL = 6;
 
 /** Renders the whole tree depth-first as Markdown: one heading per leaf (question), then its paragraph. */
 export function treeToMarkdown(tree: TreeData): string {
-  const lines: string[] = ['# LeafFocus session', ''];
+  const lines: string[] = ['# leafFocus session', ''];
   for (const { node, depth } of flattenTree(tree)) {
     const hashes = '#'.repeat(Math.min(depth + 2, MAX_HEADING_LEVEL));
     const from = node.segment ? ` _(on "${node.segment}")_` : '';

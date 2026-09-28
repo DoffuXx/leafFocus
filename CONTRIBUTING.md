@@ -1,4 +1,4 @@
-# Contributing to leaffocus
+# Contributing to leafFocus
 
 Thanks for your interest! Bug reports, ideas, and pull requests are all welcome.
 
