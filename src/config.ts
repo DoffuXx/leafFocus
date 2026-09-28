@@ -1,8 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { cli } from './cli.js';
+// Embedded as text so `--init` works from a standalone binary, where the example file is not on disk.
+import configTemplate from '../leaffocus.example.yaml' with { type: 'text' };
 
 /**
  * App configuration. Sources, highest precedence first:
@@ -20,8 +22,13 @@ export interface Config {
   instructions: string | undefined;
 }
 
+/** Global config file: `$XDG_CONFIG_HOME/leaffocus/config.yaml`, defaulting to `~/.config/leaffocus/config.yaml`. */
+export function globalConfigPath(env: Record<string, string | undefined>): string {
+  return join(env.XDG_CONFIG_HOME?.trim() || join(homedir(), '.config'), 'leaffocus', 'config.yaml');
+}
+
 /** YAML config files, checked in order; the first one that exists is used. */
-export const CONFIG_PATHS = ['leaffocus.yaml', join(homedir(), '.config', 'leaffocus', 'config.yaml')];
+export const CONFIG_PATHS = ['leaffocus.yaml', globalConfigPath(process.env)];
 
 /** Shape of the YAML config file; every key is optional. */
 const fileConfigSchema = z.object({
@@ -59,6 +66,17 @@ export function loadConfigFile(paths: string[] = CONFIG_PATHS): FileConfig {
   const result = fileConfigSchema.safeParse(Bun.YAML.parse(readFileSync(path, 'utf8')) ?? {});
   if (!result.success) throw new Error(`Invalid config file ${path}:\n${z.prettifyError(result.error)}`);
   return result.data;
+}
+
+/**
+ * Writes the commented example config to `path` (creating its folder) for `leaffocus --init`.
+ * Returns false, leaving the file untouched, if it already exists.
+ */
+export function initConfigFile(path: string, template: string = configTemplate): boolean {
+  if (existsSync(path)) return false;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, template);
+  return true;
 }
 
 /** Like {@link loadConfigFile}, but exits with a readable message instead of a stack trace. */
