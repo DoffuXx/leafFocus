@@ -14,6 +14,7 @@ import {
 } from '../tree.js';
 import { getParagraph } from '../claude.js';
 import { exportSession } from '../export.js';
+import { toSingleLine } from '../input.js';
 import { filterOutline, flattenTree } from '../outline.js';
 import { splitParagraph } from '../paragraph.js';
 import { renderLeafPlant, renderLeafTrail, type TrailPartKind } from '../trail.js';
@@ -118,6 +119,8 @@ export default function App({ treeFile }: { treeFile: string }) {
       process.off('SIGINT', saveOnInterrupt);
     };
   }, [treeFile]);
+  // Ctrl+C unmounts the app mid-request: kill the `claude` child, or the process hangs until it finishes.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   /**
    * Asks `question` under `parentId` and opens the new leaf at `[...basePath, newId]`.
@@ -242,7 +245,7 @@ export default function App({ treeFile }: { treeFile: string }) {
       } else if (key.backspace || key.delete) {
         setOutline({ query: outline.query.slice(0, -1), cursor: 0 });
       } else if (input && !key.ctrl && !key.meta) {
-        setOutline({ query: outline.query + input, cursor: 0 });
+        setOutline({ query: outline.query + toSingleLine(input), cursor: 0 });
       }
       return;
     }
@@ -315,7 +318,7 @@ export default function App({ treeFile }: { treeFile: string }) {
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        setBuffer((b) => b + input);
+        setBuffer((b) => b + toSingleLine(input));
       }
       return;
     }
@@ -354,7 +357,7 @@ export default function App({ treeFile }: { treeFile: string }) {
       return;
     }
     if (input && !key.ctrl && !key.meta) {
-      setBuffer((b) => b + input);
+      setBuffer((b) => b + toSingleLine(input));
     }
   });
 

@@ -18,7 +18,10 @@ export interface SessionSummary {
   leafCount: number;
 }
 
-/** Past sessions with at least one question asked, newest first — for a `claude -r`-style picker. */
+/**
+ * Past sessions with at least one question asked, newest first — for a `claude -r`-style picker.
+ * Unreadable files (e.g. corrupt JSON) are skipped so one bad file can't crash the picker.
+ */
 export function listSessions(dir: string = SESSIONS_DIR): SessionSummary[] {
   if (!existsSync(dir)) return [];
 
@@ -26,10 +29,14 @@ export function listSessions(dir: string = SESSIONS_DIR): SessionSummary[] {
     .filter((f) => f.endsWith('.json'))
     .map((f) => {
       const file = join(dir, f);
-      const tree = loadTree(file);
-      const firstChildId = tree.nodes[tree.rootId]?.children[0];
-      const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;
-      return title ? { file, updatedAt: statSync(file).mtime, title, leafCount: countLeaves(tree) } : null;
+      try {
+        const tree = loadTree(file);
+        const firstChildId = tree.nodes[tree.rootId]?.children[0];
+        const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;
+        return title ? { file, updatedAt: statSync(file).mtime, title, leafCount: countLeaves(tree) } : null;
+      } catch {
+        return null;
+      }
     })
     .filter((s): s is SessionSummary => s !== null);
 

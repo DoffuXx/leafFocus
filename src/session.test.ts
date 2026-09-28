@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { existsSync, rmSync, utimesSync } from 'node:fs';
+import { existsSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { listSessions, newSessionFile } from './session';
 import { ROOT_ID, addParagraph, createEmptyTree, saveTree } from './tree';
@@ -57,5 +57,12 @@ describe('listSessions', () => {
     saveSession('', 1_000);
 
     expect(listSessions(tmpDir)[0]?.title).toBe('(untitled)');
+  });
+
+  test('skips unreadable (corrupt) session files instead of throwing', () => {
+    const good = saveSession('good question', 1_000);
+    writeFileSync(newSessionFile(tmpDir), '{"nodes":', 'utf-8');
+
+    expect(listSessions(tmpDir).map((s) => s.file)).toEqual([good]);
   });
 });
