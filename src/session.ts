@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadTree } from './tree.js';
+import { countLeaves, loadTree } from './tree.js';
 
 export const SESSIONS_DIR = '.segment-tree/sessions';
 
@@ -15,6 +15,7 @@ export interface SessionSummary {
   file: string;
   updatedAt: Date;
   title: string;
+  leafCount: number;
 }
 
 /** Past sessions with at least one question asked, newest first — for a `claude -r`-style picker. */
@@ -28,7 +29,7 @@ export function listSessions(): SessionSummary[] {
       const tree = loadTree(file);
       const firstChildId = tree.nodes[tree.rootId]?.children[0];
       const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;
-      return title ? { file, updatedAt: statSync(file).mtime, title } : null;
+      return title ? { file, updatedAt: statSync(file).mtime, title, leafCount: countLeaves(tree) } : null;
     })
     .filter((s): s is SessionSummary => s !== null);
 
