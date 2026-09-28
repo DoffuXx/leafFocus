@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import { ROOT_ID, addParagraph, getChildrenForSegment, loadTree, saveTree } from '../tree.js';
+import { ROOT_ID, addParagraph, countLeaves, getChildrenForSegment, loadTree, removeNode, saveTree } from '../tree.js';
 import { getParagraph } from '../claude.js';
 import { exportSession } from '../export.js';
 import { splitParagraph } from '../paragraph.js';
@@ -26,7 +26,7 @@ const ASCII_LEAF = [
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠀⠀',
 ].join('\n');
 
-function leafCountLabel(count: number): string {
+export function leafCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'leaf' : 'leaves'}`;
 }
 
@@ -59,6 +59,8 @@ export default function App({ treeFile }: { treeFile: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [pickingChildren, setPickingChildren] = useState<TreeNode[] | null>(null);
   const [pickCursor, setPickCursor] = useState(0);
+  /** True while waiting for y/n to delete the current leaf (Ctrl+D). */
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const currentNodeId = path[path.length - 1] as string;
   const currentNode = tree.nodes[currentNodeId];
@@ -72,7 +74,7 @@ export default function App({ treeFile }: { treeFile: string }) {
   }, [tree]);
   useEffect(() => {
     const saveOnInterrupt = () => {
-      if (Object.keys(treeRef.current.nodes).length > 1) saveTree(treeFile, treeRef.current);
+      if (countLeaves(treeRef.current) > 0) saveTree(treeFile, treeRef.current);
       process.exit(0);
     };
     process.on('SIGINT', saveOnInterrupt);
@@ -139,7 +141,22 @@ export default function App({ treeFile }: { treeFile: string }) {
     void submitQuestion(currentNode.question, currentNode.parentId, currentNode.segment, path.slice(0, -1));
   }
 
+  /** Deletes the current leaf and its subtree, then goes back up to its parent. */
+  function deleteCurrent(): void {
+    const next: TreeData = structuredClone(tree);
+    const removed = removeNode(next, currentNodeId);
+    goBack();
+    setTree(next);
+    saveTree(treeFile, next);
+    setNotice(`Deleted ${leafCountLabel(removed)}`);
+  }
+
   useInput((input, key) => {
+    if (confirmingDelete) {
+      setConfirmingDelete(false);
+      if (input === 'y') deleteCurrent();
+      return;
+    }
     if (mode === 'error') {
       if (input === 'q') exit();
       else if (key.escape || key.return) setMode('browsing');
@@ -173,6 +190,10 @@ export default function App({ treeFile }: { treeFile: string }) {
     }
     if (key.ctrl && input === 'r') {
       regenerate();
+      return;
+    }
+    if (key.ctrl && input === 'd') {
+      if (currentNodeId !== ROOT_ID) setConfirmingDelete(true);
       return;
     }
 
@@ -238,7 +259,7 @@ export default function App({ treeFile }: { treeFile: string }) {
       return;
     }
     if (input === 'q' && buffer.length === 0) {
-      if (Object.keys(tree.nodes).length > 1) saveTree(treeFile, tree);
+      if (countLeaves(tree) > 0) saveTree(treeFile, tree);
       exit();
       return;
     }
@@ -255,7 +276,7 @@ export default function App({ treeFile }: { treeFile: string }) {
   };
   const breadcrumb = path.map(breadcrumbLabel).join(' > ');
   const leafHere = currentNode?.children.length ?? 0;
-  const leafTotal = Object.keys(tree.nodes).length - 1;
+  const leafTotal = countLeaves(tree);
 
   const Header = () => (
     <Box flexDirection="column" marginBottom={1}>
@@ -289,6 +310,21 @@ export default function App({ treeFile }: { treeFile: string }) {
           <Text color="red">Error: {error}</Text>
         </Box>
         <Text dimColor>Esc/Enter to go back (your question is kept) · q to quit.</Text>
+      </Box>
+    );
+  }
+
+  if (confirmingDelete) {
+    const subtreeSize = currentNode ? removeNode(structuredClone(tree), currentNodeId) : 0;
+    return (
+      <Box flexDirection="column">
+        <Header />
+        <Box borderStyle="round" borderColor="red" paddingX={1}>
+          <Text color="red">
+            Delete this leaf ({leafCountLabel(subtreeSize)} incl. everything under it)? y to confirm, any other key to
+            cancel
+          </Text>
+        </Box>
       </Box>
     );
   }
@@ -363,8 +399,8 @@ export default function App({ treeFile }: { treeFile: string }) {
       <Box marginTop={1} flexDirection="column">
         <Text dimColor>
           Tab/↑↓ cycle segment (cyan=new, green=1 leaf, yellow=multiple) · Enter focuses/reopens ·
-          type + Enter ask generally · Backspace back (box empty) · Ctrl+R regenerate · Ctrl+E export · q
-          quit (box empty)
+          type + Enter ask generally · Backspace back (box empty) · Ctrl+R regenerate · Ctrl+D delete · Ctrl+E
+          export · q quit (box empty)
         </Text>
         {notice ? <Text color="green">{notice}</Text> : null}
         <Box borderStyle="round" paddingX={1}>

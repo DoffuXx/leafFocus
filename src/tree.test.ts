@@ -3,11 +3,13 @@ import { existsSync, unlinkSync } from 'node:fs';
 import {
   ROOT_ID,
   addParagraph,
+  countLeaves,
   createEmptyTree,
   getChildren,
   getChildrenForSegment,
   getPath,
   loadTree,
+  removeNode,
   saveTree,
 } from './tree';
 import type { ParagraphResult } from './types';
@@ -120,6 +122,26 @@ describe('getPath', () => {
   test('returns an empty path for the root node', () => {
     const tree = createEmptyTree();
     expect(getPath(tree, ROOT_ID)).toEqual([]);
+  });
+});
+
+describe('removeNode', () => {
+  test('removes the node and its whole subtree and unlinks it from the parent', () => {
+    const tree = createEmptyTree();
+    const a = addParagraph(tree, ROOT_ID, null, 'q1', { paragraph: 'p1', segments: ['x'] });
+    const b = addParagraph(tree, a, 'x', 'q2', { paragraph: 'p2', segments: ['y'] });
+    addParagraph(tree, b, 'y', 'q3', { paragraph: 'p3', segments: ['z'] });
+    const sibling = addParagraph(tree, a, 'x', 'q4', { paragraph: 'p4', segments: ['w'] });
+
+    expect(removeNode(tree, b)).toBe(2);
+    expect(tree.nodes[a]?.children).toEqual([sibling]);
+    expect(countLeaves(tree)).toBe(2);
+  });
+
+  test('never removes the root', () => {
+    const tree = createEmptyTree();
+    expect(removeNode(tree, ROOT_ID)).toBe(0);
+    expect(tree.nodes[ROOT_ID]).toBeDefined();
   });
 });
 

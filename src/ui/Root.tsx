@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import App from './App.js';
+import App, { leafCountLabel } from './App.js';
 import { listSessions, newSessionFile, type SessionSummary } from '../session.js';
 
 type Phase = 'picking' | 'running';
@@ -37,7 +37,7 @@ export default function Root({ resume }: { resume: boolean }) {
         {sessions.map((s, i) => (
           <Text key={s.file} color={i === cursor ? 'green' : undefined}>
             {i === cursor ? '> ' : '  '}
-            {s.updatedAt.toLocaleString()} — {s.title}
+            {s.updatedAt.toLocaleString()} — {s.title} <Text dimColor>({leafCountLabel(s.leafCount)})</Text>
           </Text>
         ))}
       </Box>

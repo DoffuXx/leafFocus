@@ -48,6 +48,30 @@ export function getChildrenForSegment(tree: TreeData, nodeId: string, segment: s
   return getChildren(tree, nodeId).filter((n) => n.segment === segment);
 }
 
+/** Removes `nodeId` and its whole subtree, unlinking it from its parent. Returns how many nodes were removed. */
+export function removeNode(tree: TreeData, nodeId: string): number {
+  const node = tree.nodes[nodeId];
+  if (!node || nodeId === tree.rootId) return 0;
+
+  if (node.parentId) {
+    const siblings = tree.nodes[node.parentId].children;
+    siblings.splice(siblings.indexOf(nodeId), 1);
+  }
+  let removed = 0;
+  const drop = (id: string): void => {
+    for (const childId of tree.nodes[id]?.children ?? []) drop(childId);
+    delete tree.nodes[id];
+    removed++;
+  };
+  drop(nodeId);
+  return removed;
+}
+
+/** Number of leaves (every node except the root) in the tree. */
+export function countLeaves(tree: TreeData): number {
+  return Object.keys(tree.nodes).length - 1;
+}
+
 /** Nodes from (but excluding) root down to nodeId, root -> ... -> nodeId. */
 export function getPath(tree: TreeData, nodeId: string): TreeNode[] {
   const path: TreeNode[] = [];

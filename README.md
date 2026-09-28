@@ -14,6 +14,9 @@ bun run dev
 Requires the `claude` CLI installed, on your `PATH`, and logged in (`claude login`) — no API key
 needed in this app itself, it shells out to the CLI in headless mode (`claude -p`).
 
+Set `LEAFFOCUS_MODEL` (env or `.env`) to pick the model passed to `claude --model`, e.g.
+`LEAFFOCUS_MODEL=haiku bun run dev` for faster, cheaper answers. Unset uses the CLI default.
+
 ## Usage
 
 ```bash
@@ -29,6 +32,7 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 - `Backspace` (input empty) — go back up
 - `q` (input empty) — save and quit
 - `Ctrl+R` — regenerate the current leaf (re-asks its question; the new answer is added as a sibling, the old one is kept)
+- `Ctrl+D` — delete the current leaf and everything under it (asks y/n first)
 - `Ctrl+E` — export the whole session as Markdown to `.segment-tree/exports/<id>.md`
 - On an error: `Esc`/`Enter` returns with your question still typed, so `Enter` retries
 

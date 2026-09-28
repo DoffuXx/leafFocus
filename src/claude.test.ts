@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildPrompt, parseParagraphOutput } from './claude';
+import { buildClaudeArgs, buildPrompt, parseParagraphOutput } from './claude';
 
 describe('buildPrompt', () => {
   test('sends just the question when there is no parent context', () => {
@@ -26,6 +26,16 @@ describe('buildPrompt', () => {
 
     expect(prompt).toContain('Context paragraph: Some paragraph.');
     expect(prompt).not.toContain('Focus segment:');
+  });
+});
+
+describe('buildClaudeArgs', () => {
+  test('passes --model when a model is given', () => {
+    expect(buildClaudeArgs('hi', 'haiku').slice(-2)).toEqual(['--model', 'haiku']);
+  });
+
+  test('omits --model when no model is set', () => {
+    expect(buildClaudeArgs('hi', '')).not.toContain('--model');
   });
 });
 

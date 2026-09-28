@@ -98,6 +98,33 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
   return { paragraph, segments: verbatimSegments };
 }
 
+/**
+ * CLI args for one headless call. `model` (e.g. from `LEAFFOCUS_MODEL`) is passed as `--model`;
+ * when unset the CLI's default model is used.
+ *
+ * --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
+ * --max-turns 3 (not 1): forcing structured output via --json-schema makes the CLI
+ * emit its answer through an internal tool call, which alone can exceed 1 turn —
+ * observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
+ */
+export function buildClaudeArgs(prompt: string, model: string | undefined = process.env.LEAFFOCUS_MODEL): string[] {
+  const args = [
+    '-p',
+    prompt,
+    '--output-format',
+    'json',
+    '--json-schema',
+    JSON.stringify(PARAGRAPH_JSON_SCHEMA),
+    '--append-system-prompt',
+    SYSTEM_PROMPT,
+    '--max-turns',
+    '3',
+    '--allowedTools',
+    '',
+  ];
+  return model ? [...args, '--model', model] : args;
+}
+
 /** Shells out to the `claude` CLI in headless mode and returns a validated paragraph + segments. */
 export async function getParagraph(
   parent: { paragraph: string; segment: string | null } | null,
@@ -107,24 +134,7 @@ export async function getParagraph(
   appendLog({ event: 'request', question, prompt });
 
   try {
-    // --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
-    // --max-turns 3 (not 1): forcing structured output via --json-schema makes the CLI
-    // emit its answer through an internal tool call, which alone can exceed 1 turn —
-    // observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
-    const stdout = await runClaude([
-      '-p',
-      prompt,
-      '--output-format',
-      'json',
-      '--json-schema',
-      JSON.stringify(PARAGRAPH_JSON_SCHEMA),
-      '--append-system-prompt',
-      SYSTEM_PROMPT,
-      '--max-turns',
-      '3',
-      '--allowedTools',
-      '',
-    ]);
+    const stdout = await runClaude(buildClaudeArgs(prompt));
 
     const result = parseParagraphOutput(stdout);
     appendLog({ event: 'response', question, stdout, segmentCount: result.segments.length });
