@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
 import { ROOT_ID, addParagraph, getChildrenForSegment, loadTree, saveTree } from '../tree.js';
 import { getParagraph } from '../claude.js';
 import { splitParagraph } from '../paragraph.js';
+import { renderLeafTrail, type TrailLineKind } from '../trail.js';
 import type { TreeData, TreeNode } from '../types.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
@@ -24,6 +25,25 @@ const ASCII_LEAF = [
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⡇⠀⠀⠀',
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠀⠀',
 ].join('\n');
+
+/** Compact leaf drawn at the left of the header, beside the trail. */
+const LEAF_BANNER = [
+  '      .--.  ',
+  '    .\'  _/| ',
+  '   /  _/  | ',
+  '  | _/   /  ',
+  '  |/  _.\'   ',
+  '  /--\'      ',
+];
+const BANNER_WIDTH = Math.max(...LEAF_BANNER.map((l) => l.length));
+
+/** Trail line color: where you came from is dim, where you are stands out, what's below is green. */
+const TRAIL_STYLE: Record<TrailLineKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
+  path: { dimColor: true },
+  current: { color: 'cyan', bold: true },
+  child: { color: 'green' },
+  more: { dimColor: true },
+};
 
 function leafCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'leaf' : 'leaves'}`;
@@ -47,6 +67,7 @@ function segmentColor(leafCount: number): string {
 
 export default function App({ treeFile }: { treeFile: string }) {
   const { exit } = useApp();
+  const { columns } = useWindowSize();
   const [tree, setTree] = useState<TreeData>(() => loadTree(treeFile));
   const [path, setPath] = useState<string[]>([ROOT_ID]);
   const [segmentCursor, setSegmentCursor] = useState(0);
@@ -223,26 +244,33 @@ export default function App({ treeFile }: { treeFile: string }) {
     }
   });
 
-  const breadcrumbLabel = (id: string): string => {
-    if (id === ROOT_ID) return 'root';
-    const node = tree.nodes[id];
-    if (!node) return '?';
-    return node.segment ?? node.question.slice(0, 24);
-  };
-  const breadcrumb = path.map(breadcrumbLabel).join(' > ');
   const leafHere = currentNode?.children.length ?? 0;
   const leafTotal = Object.keys(tree.nodes).length - 1;
+  // banner + 2-col gap take the left side; the trail gets the rest of the width
+  const trail = renderLeafTrail(tree, path, columns - BANNER_WIDTH - 2);
 
   const Header = () => (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">
-        LeafFocus
-      </Text>
-      <Text dimColor>
-        {breadcrumb}
-        {leafHere > 0 ? ` · ${leafCountLabel(leafHere)} here` : ''}
-        {leafTotal > 0 ? ` · ${leafCountLabel(leafTotal)} total` : ''}
-      </Text>
+    <Box flexDirection="column" marginBottom={1} width={columns}>
+      <Box>
+        <Text color="green">{LEAF_BANNER.join('\n')}</Text>
+        <Box flexDirection="column" marginLeft={2} flexGrow={1}>
+          <Box justifyContent="space-between">
+            <Text bold color="cyan">
+              LeafFocus
+            </Text>
+            <Text dimColor>
+              {leafHere > 0 ? `${leafCountLabel(leafHere)} here · ` : ''}
+              {leafCountLabel(leafTotal)} total
+            </Text>
+          </Box>
+          {trail.map((line, i) => (
+            <Text key={i} {...TRAIL_STYLE[line.kind]}>
+              {line.text}
+            </Text>
+          ))}
+        </Box>
+      </Box>
+      <Text dimColor>{'─'.repeat(columns)}</Text>
     </Box>
   );
 

@@ -21,6 +21,12 @@ bun run dev            # start a brand-new session (fresh tree)
 bun run dev --resume   # pick a past session to continue, like `claude -r`
 ```
 
+## Header
+
+The top of the screen is a full-width leaf trail: an ASCII tree from `root` down to the leaf you're
+on (`●`), one level deeper per step, with the current leaf expanded to list the leaves under it
+(`(n)` = how many leaves each of those has). Deep paths collapse their middle into `┆ …N more`.
+
 ## Keys
 
 - `Tab` / `↑` / `↓` — cycle between segments in the current paragraph
