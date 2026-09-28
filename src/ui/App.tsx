@@ -3,7 +3,7 @@ import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
 import { ROOT_ID, addParagraph, getChildrenForSegment, loadTree, saveTree } from '../tree.js';
 import { getParagraph } from '../claude.js';
 import { splitParagraph } from '../paragraph.js';
-import { renderLeafTrail, type TrailLineKind } from '../trail.js';
+import { renderLeafTrail, type TrailPartKind } from '../trail.js';
 import type { TreeData, TreeNode } from '../types.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
@@ -38,11 +38,10 @@ const LEAF_BANNER = [
 const BANNER_WIDTH = Math.max(...LEAF_BANNER.map((l) => l.length));
 
 /** Trail line color: where you came from is dim, where you are stands out, what's below is green. */
-const TRAIL_STYLE: Record<TrailLineKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
+const TRAIL_STYLE: Record<TrailPartKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
   path: { dimColor: true },
   current: { color: 'cyan', bold: true },
   child: { color: 'green' },
-  more: { dimColor: true },
 };
 
 function leafCountLabel(count: number): string {
@@ -264,8 +263,12 @@ export default function App({ treeFile }: { treeFile: string }) {
             </Text>
           </Box>
           {trail.map((line, i) => (
-            <Text key={i} {...TRAIL_STYLE[line.kind]}>
-              {line.text}
+            <Text key={i}>
+              {line.map((part, j) => (
+                <Text key={j} {...TRAIL_STYLE[part.kind]}>
+                  {part.text}
+                </Text>
+              ))}
             </Text>
           ))}
         </Box>
