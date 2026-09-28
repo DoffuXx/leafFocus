@@ -358,11 +358,6 @@ export default function App({ treeFile }: { treeFile: string }) {
       }
       return;
     }
-    if (input === 'q' && buffer.length === 0) {
-      if (countLeaves(tree) > 0) saveTree(treeFile, tree);
-      exit();
-      return;
-    }
     if (input && !key.ctrl && !key.meta) {
       setBuffer((b) => b + toSingleLine(input));
     }
@@ -524,7 +519,7 @@ export default function App({ treeFile }: { treeFile: string }) {
           <KeyHints
             hints={[
               ['Tab/↑↓', 'retarget'],
-              ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
+              Boolean(buffer.trim() || leafCounts[segmentCursor]) && ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
               ['Esc', 'back'],
             ]}
           />
@@ -581,7 +576,8 @@ export default function App({ treeFile }: { treeFile: string }) {
             !isRoot && ['Ctrl+R', 'regenerate'],
             !isRoot && ['Ctrl+D', 'delete'],
             ['Ctrl+E', 'export'],
-            !buffer && ['q', 'quit'],
+            // not `q`: the input is always live, so a question starting with "q" would quit
+            ['Ctrl+C', 'quit'],
           ]}
         />
         {segments.length > 0 ? (

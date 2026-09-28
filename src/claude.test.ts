@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildClaudeArgs, buildPrompt, extractPartialSegments, parseParagraphOutput } from './claude';
+import { buildClaudeArgs, buildPrompt, cliErrorMessage, extractPartialSegments, parseParagraphOutput } from './claude';
 
 describe('buildPrompt', () => {
   test('sends just the question when there is no parent context', () => {
@@ -160,5 +160,23 @@ describe('extractPartialSegments', () => {
 
   test('stops at the end of the array', () => {
     expect(extractPartialSegments('{"segments": ["a", "b"], "x": ["c"]}')).toEqual(['a', 'b']);
+  });
+});
+
+describe('cliErrorMessage', () => {
+  test("prefers the error result event's readable message over raw stderr", () => {
+    const stdout = [
+      JSON.stringify({ type: 'system', subtype: 'init' }),
+      JSON.stringify({ type: 'result', is_error: true, result: 'There is an issue with the selected model.' }),
+    ].join('\n');
+
+    expect(cliErrorMessage(1, stdout, '[claude-code:unrecognized_model] {}')).toBe(
+      'claude CLI reported an error: There is an issue with the selected model.'
+    );
+  });
+
+  test('falls back to stderr when stdout has no error result or is garbled', () => {
+    expect(cliErrorMessage(1, '', 'boom')).toBe('claude exited with code 1: boom');
+    expect(cliErrorMessage(1, '{"type":"res', 'boom')).toBe('claude exited with code 1: boom');
   });
 });
