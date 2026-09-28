@@ -84,6 +84,19 @@ describe('parseParagraphOutput', () => {
     });
   });
 
+  test('accepts a single result object (newer CLI versions) instead of an event array', () => {
+    const stdout = JSON.stringify({
+      type: 'result',
+      is_error: false,
+      structured_output: { paragraph: 'Segment trees support range queries.', segments: ['range queries'] },
+    });
+
+    expect(parseParagraphOutput(stdout)).toEqual({
+      paragraph: 'Segment trees support range queries.',
+      segments: ['range queries'],
+    });
+  });
+
   test('throws when the payload does not match the paragraph schema', () => {
     const stdout = JSON.stringify([
       { type: 'result', is_error: false, structured_output: { paragraph: '', segments: [] } },

@@ -10,6 +10,8 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-%E2%9C%A8-blueviolet)
 
+![leaffocus demo: ask a question, cycle segments, drill into one](docs/demo.gif)
+
 ## Features
 
 - **Focused answers**: one paragraph per question, no walls of text.
