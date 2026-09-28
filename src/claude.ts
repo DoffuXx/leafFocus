@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config } from './config.js';
 import { appendLog } from './log.js';
@@ -132,16 +133,27 @@ export async function getParagraph(
   question: string
 ): Promise<ParagraphResult> {
   const prompt = buildPrompt(parent, question);
-  appendLog({ event: 'request', question, prompt });
+  const requestId = randomUUID();
+  const startedAt = performance.now();
+  const elapsedMs = (): number => Math.round(performance.now() - startedAt);
+  appendLog({ event: 'request', requestId, question, prompt, model: config.model });
 
   try {
     const stdout = await runClaude(buildClaudeArgs(prompt));
 
     const result = parseParagraphOutput(stdout);
-    appendLog({ event: 'response', question, stdout, segmentCount: result.segments.length });
+    appendLog({
+      event: 'response',
+      requestId,
+      question,
+      stdout,
+      segmentCount: result.segments.length,
+      durationMs: elapsedMs(),
+    });
     return result;
   } catch (err) {
-    appendLog({ event: 'error', question, error: err instanceof Error ? err.message : String(err) });
+    const error = err instanceof Error ? err.message : String(err);
+    appendLog({ event: 'error', requestId, question, error, durationMs: elapsedMs() });
     throw err;
   }
 }
