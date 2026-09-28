@@ -8,18 +8,22 @@ export const TRAIL_LABEL_MAX = 18;
 /** Columns kept free on the right for child labels before the path starts folding. */
 export const TRAIL_CHILD_ROOM = 20;
 
-/** Drawn above the stem for each leaf on the path; the current one is filled in. */
-const LEAF_ART = [' ,-. ', '(   )', " `-' "];
-const CURRENT_LEAF_ART = [' ,@. ', '(@@@)', " `@' "];
-const LEAF_ART_WIDTH = 5;
+/**
+ * Drawn above the stem for each leaf on the path, midrib and veins included; the current one is
+ * filled in. Style adapted from the veined leaf at https://www.asciiart.eu/plants/leaf.
+ */
+const LEAF_ART = ['  .^.  ', " /'|'\\ ", "( '|' )", " '.|.' "];
+const CURRENT_LEAF_ART = ['  .^.  ', ' /#|#\\ ', '(##|##)', " '.|.' "];
+const LEAF_ART_WIDTH = 7;
 const COLUMN_GAP = 2;
-/** Rows: 3 of leaf art, the stem, the labels. */
-const STEM_ROW = 3;
-const LABEL_ROW = 4;
+/** Rows: 4 of leaf art, the stem, the labels. */
+const STEM_ROW = 4;
+const LABEL_ROW = 5;
 
-/** One small leaf of the header plant, 6 columns wide, on its own piece of stem. */
-const PLANT_CELL = ['  _   ', ' (_)  ', '──┴───'];
-const PLANT_CELL_WIDTH = 6;
+/** Header plant leaves alternate above and below the stem, one every PLANT_LEAF_SPACING columns. */
+const PLANT_LEAF_UP = '\\|/';
+const PLANT_LEAF_DOWN = '/|\\';
+const PLANT_LEAF_SPACING = 4;
 
 /** `stem` = connectors and the way here, `leaf` = leaf art on the path, `current` = where you are, `child` = the next leaves. */
 export type TrailPartKind = 'stem' | 'leaf' | 'current' | 'child';
@@ -128,7 +132,7 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
     put(LABEL_ROW, col.x + Math.floor((col.width - col.label.length) / 2), col.kind === 'current' ? 'current' : 'stem', col.label);
     if (col.kind === 'fold') continue;
     const art = col.kind === 'current' ? CURRENT_LEAF_ART : LEAF_ART;
-    art.forEach((line, r) => put(r, center - 2, col.kind === 'current' ? 'current' : 'leaf', line));
+    art.forEach((line, r) => put(r, center - 3, col.kind === 'current' ? 'current' : 'leaf', line));
     stem[center] = '┴';
   }
   put(STEM_ROW, 0, 'stem', stem.join(''));
@@ -146,13 +150,25 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
 }
 
 /**
- * A plant stem across `width` with one small ASCII leaf per leaf in the tree, so it grows as the
- * tree does. Leaves that don't fit are counted as `+N`.
+ * A vine across `width` with one small ASCII leaf per leaf in the tree, alternating above and
+ * below the stem, so it grows as the tree does. Leaves that don't fit are counted as `+N`.
  */
 export function renderLeafPlant(leafCount: number, width: number): string[] {
-  const fits = Math.max(0, Math.floor((width - 4) / PLANT_CELL_WIDTH));
+  const fits = Math.max(0, Math.floor((width - 6) / PLANT_LEAF_SPACING));
   const shown = leafCount <= fits ? leafCount : Math.max(0, fits - 1);
-  const rows = PLANT_CELL.map((cell) => cell.repeat(shown));
-  if (shown < leafCount) rows[1] += ` +${leafCount - shown}`;
-  return rows.map((row, r) => (r === 2 ? row.padEnd(width, '─') : row).slice(0, width));
+  const above = Array.from({ length: width }, () => ' ');
+  const stem = Array.from({ length: width }, () => '─');
+  const below = Array.from({ length: width }, () => ' ');
+  /** Writes `text` into `row` starting at column `x`. */
+  const draw = (row: string[], x: number, text: string) => [...text].forEach((ch, j) => (row[x + j] = ch));
+
+  for (let i = 0; i < shown; i++) {
+    const x = 2 + i * PLANT_LEAF_SPACING;
+    const up = i % 2 === 0;
+    draw(up ? above : below, x - 1, up ? PLANT_LEAF_UP : PLANT_LEAF_DOWN);
+    stem[x] = up ? '┴' : '┬';
+  }
+  if (shown < leafCount) draw(stem, 2 + shown * PLANT_LEAF_SPACING, ` +${leafCount - shown}`);
+
+  return [above, stem, below].map((row) => row.slice(0, width).join('').trimEnd());
 }
