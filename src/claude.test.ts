@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { buildClaudeArgs, buildPrompt, extractPartialSegments, parseParagraphOutput } from './claude';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
+import { buildClaudeArgs, buildPrompt, extractPartialSegments, getParagraph, parseParagraphOutput } from './claude';
 
 describe('buildPrompt', () => {
   test('sends just the question when there is no parent context', () => {
@@ -160,5 +163,46 @@ describe('extractPartialSegments', () => {
 
   test('stops at the end of the array', () => {
     expect(extractPartialSegments('{"segments": ["a", "b"], "x": ["c"]}')).toEqual(['a', 'b']);
+  });
+});
+
+describe('getParagraph (fake claude CLI on PATH)', () => {
+  /** Runs `getParagraph` against a fake `claude` executable whose body is `script` (Bun JS). */
+  async function withFakeClaude<T>(script: string, run: () => Promise<T>): Promise<T> {
+    const dir = mkdtempSync(join(tmpdir(), 'fake-claude-'));
+    writeFileSync(join(dir, 'claude'), `#!/usr/bin/env bun\n${script}`, { mode: 0o755 });
+    const originalPath = process.env.PATH;
+    process.env.PATH = `${dir}${delimiter}${originalPath}`;
+    try {
+      return await run();
+    } finally {
+      process.env.PATH = originalPath;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test('keeps a multibyte character intact when stdout splits it across chunks', async () => {
+    const result = await withFakeClaude(
+      `const line = Buffer.from(JSON.stringify({ type: 'result', is_error: false, structured_output: { segments: ['café 🌿'] } }) + '\\n');
+const cut = line.indexOf(Buffer.from('é')) + 1;
+process.stdout.write(line.subarray(0, cut));
+await Bun.sleep(50);
+process.stdout.write(line.subarray(cut));`,
+      () => getParagraph(null, 'q')
+    );
+    expect(result.segments).toEqual(['café 🌿']);
+  });
+
+  test('reports the result event, not the whole stream, when the CLI fails without stderr', async () => {
+    const run = withFakeClaude(
+      `for (let i = 0; i < 3; i++) console.log(JSON.stringify({ type: 'stream_event', event: { type: 'ping' } }));
+console.log(JSON.stringify({ type: 'result', is_error: true, result: 'max turns reached' }));
+process.exit(1);`,
+      () => getParagraph(null, 'q')
+    );
+    const error = await run.catch((err: Error) => err);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain('max turns reached');
+    expect((error as Error).message).not.toContain('stream_event');
   });
 });

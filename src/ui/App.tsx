@@ -420,7 +420,7 @@ export default function App({ treeFile }: { treeFile: string }) {
           </Box>
         ) : null}
         <Text>
-          <Spinner /> {streamedSegments.length > 0 ? `Writing… (${streamedSegments.length} segments)` : 'Thinking…'}
+          <Spinner /> {streamedSegments.length > 0 ? `Writing… (${streamedSegments.length} ${streamedSegments.length === 1 ? 'segment' : 'segments'})` : 'Thinking…'}
         </Text>
         <KeyHints hints={[['Esc', 'cancel']]} />
       </Box>
