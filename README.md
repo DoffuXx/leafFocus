@@ -90,10 +90,10 @@ With a release binary, use `leaffocus [flags]` instead of `bun run dev`.
 | `Enter` (input empty)     | Drill into the highlighted segment's existing children |
 | type + `Enter`            | Ask/continue from the highlighted segment (new branch) |
 | `Backspace` (input empty) | Go back up                                             |
-| `q` (input empty)         | Save and quit                                          |
+| `Ctrl+Q`                  | Save and quit                                          |
 | `←` / `→`                 | Switch between answers from the same segment           |
 | `Ctrl+T`                  | Outline: type to filter, `↑`/`↓` + `Enter` to jump     |
-| `Esc` (while thinking)    | Cancel the request (your question is kept)             |
+| `Esc` (while thinking)    | Cancel the request (a typed question is kept)          |
 | `Ctrl+R`                  | Regenerate the current leaf (new sibling, old kept)    |
 | `Ctrl+D`                  | Delete the current leaf and its subtree (asks y/n)     |
 | `Ctrl+E`                  | Export the session as Markdown                         |
