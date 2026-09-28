@@ -10,7 +10,7 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-%E2%9C%A8-blueviolet)
 
-![leaffocus demo: ask a question, cycle segments, drill into one](docs/demo.gif)
+![leaffocus demo: ask a question, watch it stream in, focus a segment, drill into it](docs/demo.gif)
 
 ## Features
 
@@ -155,6 +155,9 @@ bun run typecheck   # tsc --noEmit
 ```
 
 CI runs both on every push and pull request.
+
+The README demo is recorded with [vhs](https://github.com/charmbracelet/vhs) (needs a logged-in
+`claude` CLI): `vhs docs/demo.tape` regenerates `docs/demo.gif`.
 
 ## Contributing
 
