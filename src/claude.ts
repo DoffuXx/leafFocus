@@ -11,8 +11,8 @@ import type { ParagraphResult, Usage } from './types.js';
  * eventually failing — closing it immediately avoids that stall.
  * `onLine` receives each complete stdout line as it arrives (for streaming).
  * Aborting `signal` kills the child and rejects with an `AbortError`.
- * Output is decoded as UTF-8 per stream, so a multi-byte character (é, emoji) split across two
- * chunks is not garbled into `�`.
+ * Output is decoded as UTF-8 stream-wise, so a multibyte character split across two chunks
+ * isn't garbled into `�` (which would corrupt the saved answer, not just the preview).
  */
 function runClaude(args: string[], signal?: AbortSignal, onLine?: (line: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -35,9 +35,15 @@ function runClaude(args: string[], signal?: AbortSignal, onLine?: (line: string)
     child.on('error', reject);
     child.on('close', (code) => {
       if (code === 0) resolve(stdout);
-      else reject(new Error(`claude exited with code ${code}: ${stderr.trim() || stdout.trim()}`));
+      // stdout is the whole stream-json dump; its last line (the result event) carries the error
+      else reject(new Error(`claude exited with code ${code}: ${stderr.trim() || lastLine(stdout)}`));
     });
   });
+}
+
+/** Last non-empty line of `text`, trimmed ('' if none). */
+function lastLine(text: string): string {
+  return text.trim().split('\n').pop()?.trim() ?? '';
 }
 
 const SYSTEM_PROMPT = 'You are a helpful assistant. Respond only with the requested JSON — no extra commentary.';

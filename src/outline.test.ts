@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { filterOutline, flattenTree } from './outline';
+import { filterOutline, flattenTree, windowStart } from './outline';
 import { ROOT_ID, addParagraph, createEmptyTree } from './tree';
 
 function sampleTree() {
@@ -42,5 +42,20 @@ describe('filterOutline', () => {
     expect(filterOutline(entries, 'HEAP').map((e) => e.node.id)).toEqual([c]);
     expect(filterOutline(entries, 'range queries').map((e) => e.node.id)).toEqual([a, b]);
     expect(filterOutline(entries, 'log time').map((e) => e.node.id)).toEqual([b]);
+  });
+});
+
+describe('windowStart', () => {
+  test('starts at 0 when everything fits or the cursor is near the top', () => {
+    expect(windowStart(3, 10, 15)).toBe(0);
+    expect(windowStart(2, 40, 15)).toBe(0);
+  });
+
+  test('centers the cursor mid-list', () => {
+    expect(windowStart(20, 40, 15)).toBe(13);
+  });
+
+  test('clamps to the last full window at the bottom', () => {
+    expect(windowStart(39, 40, 15)).toBe(25);
   });
 });
