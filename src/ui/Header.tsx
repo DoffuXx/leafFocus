@@ -4,15 +4,15 @@ import { renderLeafTrail, type TrailPartKind } from '../trail.js';
 import type { TreeData } from '../types.js';
 import { leafCountLabel } from './format.js';
 
-/** Trail colors: stem and past labels are dim, leaves green, where you are stands out. */
+/** Trail colors: stem dim, leaves on your path green, other leaves dim green, where you are stands out. */
 const TRAIL_STYLE: Record<TrailPartKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
   stem: { dimColor: true },
   leaf: { color: 'green' },
   current: { color: 'cyan', bold: true },
-  child: { color: 'green' },
+  other: { color: 'green', dimColor: true },
 };
 
-/** Title + leaf/cost stats, then the leaf trail from root to the current node (`path`). */
+/** Title + leaf/cost stats, then the whole session as one vine with the path to the current node (`path`) highlighted. */
 export function Header({ tree, path, columns }: { tree: TreeData; path: string[]; columns: number }) {
   const leafHere = tree.nodes[path[path.length - 1] as string]?.children.length ?? 0;
   const sessionCost = totalCost(tree);
