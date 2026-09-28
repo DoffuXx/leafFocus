@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "bun run index.tsx",
     "start": "bun run index.tsx",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.3.0"
   },
   "peerDependencies": {
     "typescript": "^5"
