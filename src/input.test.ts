@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { toSingleLine } from './input';
+import { toSingleLine, typedText } from './input';
 
 describe('toSingleLine', () => {
   test('keeps plain text as is', () => {
@@ -13,5 +13,18 @@ describe('toSingleLine', () => {
 
   test('drops other control characters', () => {
     expect(toSingleLine('a\u0007b\u007fc')).toBe('abc');
+  });
+});
+
+describe('typedText', () => {
+  const plain = { ctrl: false, meta: false };
+
+  test('returns flattened input for plain keys', () => {
+    expect(typedText('ab\r', plain)).toBe('ab ');
+  });
+
+  test('ignores Ctrl/Meta chords', () => {
+    expect(typedText('e', { ctrl: true, meta: false })).toBe('');
+    expect(typedText('x', { ctrl: false, meta: true })).toBe('');
   });
 });

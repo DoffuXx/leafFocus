@@ -8,6 +8,8 @@ export interface CliArgs {
   help: boolean;
   /** `-v`/`--version`: print the version and exit. */
   version: boolean;
+  /** `--init`: write the example config to the global config path and exit. */
+  init: boolean;
   /** `-r`/`--resume`: pick a past session instead of starting fresh (like `claude -r`). */
   resume: boolean;
   /** Config values set by flags; they override env vars and the YAML file. */
@@ -20,6 +22,7 @@ Usage: leaffocus [options]
 
 Options:
   -r, --resume               Pick a past session to continue
+      --init                 Create ~/.config/leaffocus/config.yaml from the example and exit
   -m, --model <name>         Model for \`claude --model\` (e.g. haiku); overrides LEAFFOCUS_MODEL
   -f, --fullscreen           Render full-screen; overrides LEAFFOCUS_FULLSCREEN
   -i, --instructions <text>  Standing instructions for every answer; overrides LEAFFOCUS_INSTRUCTIONS
@@ -35,6 +38,7 @@ export function parseCli(argv: string[]): CliArgs {
     options: {
       help: { type: 'boolean', short: 'h' },
       version: { type: 'boolean', short: 'v' },
+      init: { type: 'boolean' },
       resume: { type: 'boolean', short: 'r' },
       model: { type: 'string', short: 'm' },
       fullscreen: { type: 'boolean', short: 'f' },
@@ -45,6 +49,7 @@ export function parseCli(argv: string[]): CliArgs {
   return {
     help: values.help ?? false,
     version: values.version ?? false,
+    init: values.init ?? false,
     resume: values.resume ?? false,
     overrides: { model: values.model, fullscreen: values.fullscreen, instructions: values.instructions },
   };
