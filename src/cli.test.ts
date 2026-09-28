@@ -7,6 +7,7 @@ describe('parseCli', () => {
     expect(parseCli([])).toEqual({
       help: false,
       version: false,
+      init: false,
       resume: false,
       overrides: { model: undefined, fullscreen: undefined, instructions: undefined },
     });
@@ -16,10 +17,11 @@ describe('parseCli', () => {
     expect(parseCli(['-r', '-m', 'haiku', '--fullscreen', '--instructions', 'Be brief.'])).toEqual({
       help: false,
       version: false,
+      init: false,
       resume: true,
       overrides: { model: 'haiku', fullscreen: true, instructions: 'Be brief.' },
     });
-    expect(parseCli(['-h', '-v'])).toMatchObject({ help: true, version: true });
+    expect(parseCli(['-h', '-v', '--init'])).toMatchObject({ help: true, version: true, init: true });
   });
 
   test('throws on unknown flags and missing values', () => {
