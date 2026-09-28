@@ -44,12 +44,12 @@ const ASCII_LEAF = [
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠀⠀',
 ].join('\n');
 
-/** Trail colors: stem and past labels are dim, leaves green, where you are stands out. */
+/** Trail colors: stem dim, leaves on your path green, other leaves dim green, where you are stands out. */
 const TRAIL_STYLE: Record<TrailPartKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
   stem: { dimColor: true },
   leaf: { color: 'green' },
   current: { color: 'cyan', bold: true },
-  child: { color: 'green' },
+  other: { color: 'green', dimColor: true },
 };
 
 export function leafCountLabel(count: number): string {
