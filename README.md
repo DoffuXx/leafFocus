@@ -87,9 +87,10 @@ With a release binary, use `leaffocus [flags]` instead of `bun run dev`.
 | ------------------------- | ------------------------------------------------------ |
 | `Tab` / `↑` / `↓`         | Cycle between segments in the current paragraph        |
 | `Enter` (input empty)     | Drill into the highlighted segment's existing children |
+| `Enter` at the top        | Open the existing top-level answer(s)                  |
 | type + `Enter`            | Ask/continue from the highlighted segment (new branch) |
 | `Backspace` (input empty) | Go back up                                             |
-| `q` (input empty)         | Save and quit                                          |
+| `Ctrl+Q`                  | Save and quit                                          |
 | `←` / `→`                 | Switch between answers from the same segment           |
 | `Ctrl+T`                  | Outline: type to filter, `↑`/`↓` + `Enter` to jump     |
 | `Esc` (while thinking)    | Cancel the request (your question is kept)             |

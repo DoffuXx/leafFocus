@@ -292,6 +292,12 @@ export default function App({ treeFile }: { treeFile: string }) {
       setOutline({ query: '', cursor: 0 });
       return;
     }
+    // Ctrl+Q, not a bare `q`: the input box is always live, so `q` must type (e.g. "quick question").
+    if (key.ctrl && input === 'q') {
+      if (countLeaves(tree) > 0) saveTree(treeFile, tree);
+      exit();
+      return;
+    }
     if (key.leftArrow || key.rightArrow) {
       switchSibling(key.rightArrow ? 1 : -1);
       return;
@@ -356,11 +362,6 @@ export default function App({ treeFile }: { treeFile: string }) {
       } else {
         goBack();
       }
-      return;
-    }
-    if (input === 'q' && buffer.length === 0) {
-      if (countLeaves(tree) > 0) saveTree(treeFile, tree);
-      exit();
       return;
     }
     if (input && !key.ctrl && !key.meta) {
@@ -565,7 +566,11 @@ export default function App({ treeFile }: { treeFile: string }) {
       ) : (
         <Box borderStyle="round" paddingX={2} paddingY={1} flexDirection="column" alignItems="center">
           <Text color="green">{ASCII_LEAF}</Text>
-          <Text dimColor>(nothing here yet — type your question below)</Text>
+          <Text dimColor>
+            {leafHere > 0
+              ? `(${leafCountLabel(leafHere)} here — Enter to open, or type a new question below)`
+              : '(nothing here yet — type your question below)'}
+          </Text>
         </Box>
       )}
       <Box marginTop={1} flexDirection="column">
@@ -575,13 +580,14 @@ export default function App({ treeFile }: { treeFile: string }) {
           hints={[
             segments.length > 0 && ['Tab/↑↓', 'segment'],
             segments.length > 0 && ['Enter', 'focus'],
+            segments.length === 0 && !buffer && leafHere > 0 && ['Enter', 'open'],
             (buffer.length > 0 || path.length > 1) && ['Esc', buffer ? 'clear' : 'back'],
             siblings.length > 1 && ['←/→', 'other answers'],
             ['Ctrl+T', 'outline'],
             !isRoot && ['Ctrl+R', 'regenerate'],
             !isRoot && ['Ctrl+D', 'delete'],
             ['Ctrl+E', 'export'],
-            !buffer && ['q', 'quit'],
+            ['Ctrl+Q', 'quit'],
           ]}
         />
         {segments.length > 0 ? (

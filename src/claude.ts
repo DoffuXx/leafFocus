@@ -11,21 +11,24 @@ import type { ParagraphResult, Usage } from './types.js';
  * eventually failing — closing it immediately avoids that stall.
  * `onLine` receives each complete stdout line as it arrives (for streaming).
  * Aborting `signal` kills the child and rejects with an `AbortError`.
+ * Streams are decoded as UTF-8 so a multi-byte character split across two chunks isn't garbled.
  */
 function runClaude(args: string[], signal?: AbortSignal, onLine?: (line: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn('claude', args, { stdio: ['ignore', 'pipe', 'pipe'], signal });
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
     let stdout = '';
     let stderr = '';
     let pending = '';
-    child.stdout.on('data', (chunk: Buffer) => {
+    child.stdout.on('data', (chunk: string) => {
       stdout += chunk;
       if (!onLine) return;
       const lines = (pending + chunk).split('\n');
       pending = lines.pop() ?? '';
       for (const line of lines) onLine(line);
     });
-    child.stderr.on('data', (chunk: Buffer) => {
+    child.stderr.on('data', (chunk: string) => {
       stderr += chunk;
     });
     child.on('error', reject);
