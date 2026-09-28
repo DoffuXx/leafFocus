@@ -75,13 +75,14 @@ export function buildPrompt(
 }
 
 /**
- * `claude --output-format json` prints a JSON array of event objects (e.g. a `system`
- * init event followed by the final `result` event), not a single envelope object.
- * Pulls the result event out of that array, validates the shape, and keeps only segments
+ * `claude --output-format json` prints either a JSON array of event objects (e.g. a `system`
+ * init event followed by the final `result` event) or, depending on CLI version, the single
+ * `result` object. Pulls the result event out, validates the shape, and keeps only segments
  * that are actual verbatim substrings of the paragraph (models sometimes paraphrase).
  */
 export function parseParagraphOutput(stdout: string): ParagraphResult {
-  const events = JSON.parse(stdout) as unknown[];
+  const parsed: unknown = JSON.parse(stdout);
+  const events: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
   const resultEvent = events.find(
     (e): e is CliResultEvent => typeof e === 'object' && e !== null && (e as { type?: unknown }).type === 'result'
   );
