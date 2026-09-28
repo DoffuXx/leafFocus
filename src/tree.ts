@@ -34,6 +34,7 @@ export function addParagraph(
     paragraph: result.paragraph,
     segments: result.segments,
     children: [],
+    ...(result.usage ? { usage: result.usage } : {}),
   };
   tree.nodes[parentId].children.push(id);
   return id;
@@ -70,6 +71,18 @@ export function removeNode(tree: TreeData, nodeId: string): number {
 /** Number of leaves (every node except the root) in the tree. */
 export function countLeaves(tree: TreeData): number {
   return Object.keys(tree.nodes).length - 1;
+}
+
+/** Leaves sharing `nodeId`'s parent and source segment (includes the node itself), in creation order. */
+export function getSiblings(tree: TreeData, nodeId: string): TreeNode[] {
+  const node = tree.nodes[nodeId];
+  if (!node?.parentId) return [];
+  return getChildrenForSegment(tree, node.parentId, node.segment);
+}
+
+/** Sum of recorded per-call cost across the tree, in USD. */
+export function totalCost(tree: TreeData): number {
+  return Object.values(tree.nodes).reduce((sum, n) => sum + (n.usage?.costUsd ?? 0), 0);
 }
 
 /** Nodes from (but excluding) root down to nodeId, root -> ... -> nodeId. */

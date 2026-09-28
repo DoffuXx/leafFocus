@@ -31,11 +31,19 @@ describe('buildPrompt', () => {
 
 describe('buildClaudeArgs', () => {
   test('passes --model when a model is given', () => {
-    expect(buildClaudeArgs('hi', 'haiku').slice(-2)).toEqual(['--model', 'haiku']);
+    expect(buildClaudeArgs('hi', { model: 'haiku', instructions: undefined }).slice(-2)).toEqual(['--model', 'haiku']);
   });
 
   test('omits --model when no model is set', () => {
-    expect(buildClaudeArgs('hi', '')).not.toContain('--model');
+    expect(buildClaudeArgs('hi', { model: undefined, instructions: undefined })).not.toContain('--model');
+  });
+
+  test('appends instructions to the system prompt', () => {
+    const args = buildClaudeArgs('hi', { model: undefined, instructions: 'Answer in French.' });
+    const systemPrompt = args[args.indexOf('--append-system-prompt') + 1];
+
+    expect(systemPrompt).toContain('Respond only with the requested JSON');
+    expect(systemPrompt).toEndWith('Answer in French.');
   });
 
   test('runs a tool-less, JSON-output call with room for the structured-output turn', () => {
@@ -67,6 +75,20 @@ describe('parseParagraphOutput', () => {
       paragraph: 'Segment trees support range queries and point updates.',
       segments: ['range queries', 'point updates'],
     });
+  });
+
+  test('reads duration and cost from the result event when reported', () => {
+    const stdout = JSON.stringify([
+      {
+        type: 'result',
+        is_error: false,
+        duration_ms: 4200,
+        total_cost_usd: 0.0031,
+        structured_output: { paragraph: 'Range queries.', segments: ['Range queries.'] },
+      },
+    ]);
+
+    expect(parseParagraphOutput(stdout).usage).toEqual({ durationMs: 4200, costUsd: 0.0031 });
   });
 
   test('falls back to parsing the JSON in `result` when structured_output is absent', () => {

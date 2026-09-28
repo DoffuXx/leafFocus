@@ -7,3 +7,6 @@
 # true = full-screen mode (alternate screen, full terminal height, terminal restored on exit).
 # false = render inline below your shell prompt.
 fullscreen: false
+
+# Standing instructions added to every answer, e.g. "Answer in French." or "Explain like I'm new to this."
+# instructions: Answer in French.

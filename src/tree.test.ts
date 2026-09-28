@@ -8,9 +8,11 @@ import {
   getChildren,
   getChildrenForSegment,
   getPath,
+  getSiblings,
   loadTree,
   removeNode,
   saveTree,
+  totalCost,
 } from './tree';
 import type { ParagraphResult } from './types';
 
@@ -122,6 +124,38 @@ describe('getPath', () => {
   test('returns an empty path for the root node', () => {
     const tree = createEmptyTree();
     expect(getPath(tree, ROOT_ID)).toEqual([]);
+  });
+});
+
+describe('getSiblings', () => {
+  test('returns leaves with the same parent and segment, including the node itself', () => {
+    const tree = createEmptyTree();
+    const a = addParagraph(tree, ROOT_ID, null, 'q1', { paragraph: 'p', segments: ['x', 'y'] });
+    const first = addParagraph(tree, a, 'x', 'q2', { paragraph: 'first', segments: ['f'] });
+    addParagraph(tree, a, 'y', 'q3', { paragraph: 'other segment', segments: ['o'] });
+    const second = addParagraph(tree, a, 'x', 'q2', { paragraph: 'second', segments: ['s'] });
+
+    expect(getSiblings(tree, second).map((n) => n.id)).toEqual([first, second]);
+  });
+
+  test('is empty for the root', () => {
+    expect(getSiblings(createEmptyTree(), ROOT_ID)).toEqual([]);
+  });
+});
+
+describe('totalCost', () => {
+  test('sums recorded usage and ignores leaves without it', () => {
+    const tree = createEmptyTree();
+    const a = addParagraph(tree, ROOT_ID, null, 'q1', {
+      paragraph: 'p',
+      segments: ['p'],
+      usage: { durationMs: 1000, costUsd: 0.25 },
+    });
+    addParagraph(tree, a, 'p', 'q2', { paragraph: 'p2', segments: ['p2'], usage: { durationMs: 500, costUsd: 0.5 } });
+    addParagraph(tree, a, 'p', 'q3', { paragraph: 'p3', segments: ['p3'] });
+
+    expect(tree.nodes[a]?.usage).toEqual({ durationMs: 1000, costUsd: 0.25 });
+    expect(totalCost(tree)).toBe(0.75);
   });
 });
 

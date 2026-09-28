@@ -14,6 +14,8 @@ export interface Config {
   model: string | undefined;
   /** Render in the terminal's alternate screen at full height (like vim/htop), restoring the terminal on exit. */
   fullscreen: boolean;
+  /** Extra standing instructions appended to every call's system prompt (e.g. "answer in French"). */
+  instructions: string | undefined;
 }
 
 /** YAML config files, checked in order; the first one that exists is used. */
@@ -23,6 +25,7 @@ export const CONFIG_PATHS = ['leaffocus.yaml', join(homedir(), '.config', 'leaff
 const fileConfigSchema = z.object({
   model: z.string().optional(),
   fullscreen: z.boolean().optional(),
+  instructions: z.string().optional(),
 });
 
 export type FileConfig = z.infer<typeof fileConfigSchema>;
@@ -38,6 +41,7 @@ export function parseConfig(env: Record<string, string | undefined>, file: FileC
   return {
     model: env.LEAFFOCUS_MODEL?.trim() || file.model?.trim() || undefined,
     fullscreen: fullscreenEnv ? parseBoolean(fullscreenEnv) : (file.fullscreen ?? false),
+    instructions: env.LEAFFOCUS_INSTRUCTIONS?.trim() || file.instructions?.trim() || undefined,
   };
 }
 
