@@ -10,7 +10,7 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-%E2%9C%A8-blueviolet)
 
-![leaffocus demo: ask a question, cycle segments, drill into one](docs/demo.gif)
+![leaffocus demo: ask a question, watch it stream in, focus a segment, drill into it](docs/demo.gif)
 
 ## Features
 
@@ -89,10 +89,10 @@ With a release binary, use `leaffocus [flags]` instead of `bun run dev`.
 | `Enter` (input empty)     | Drill into the highlighted segment's existing children |
 | type + `Enter`            | Ask/continue from the highlighted segment (new branch) |
 | `Backspace` (input empty) | Go back up                                             |
-| `Ctrl+C`                  | Quit (every change is already saved)                   |
+| `Ctrl+Q`                  | Save and quit                                          |
 | `←` / `→`                 | Switch between answers from the same segment           |
 | `Ctrl+T`                  | Outline: type to filter, `↑`/`↓` + `Enter` to jump     |
-| `Esc` (while thinking)    | Cancel the request (your question is kept)             |
+| `Esc` (while thinking)    | Cancel the request (a typed question is kept)          |
 | `Ctrl+R`                  | Regenerate the current leaf (new sibling, old kept)    |
 | `Ctrl+D`                  | Delete the current leaf and its subtree (asks y/n)     |
 | `Ctrl+E`                  | Export the session as Markdown                         |
@@ -155,6 +155,9 @@ bun run typecheck   # tsc --noEmit
 ```
 
 CI runs both on every push and pull request.
+
+The README demo is recorded with [vhs](https://github.com/charmbracelet/vhs) (needs a logged-in
+`claude` CLI): `vhs docs/demo.tape` regenerates `docs/demo.gif`.
 
 ## Contributing
 
