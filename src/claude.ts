@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { z } from 'zod';
+import { config } from './config.js';
 import { appendLog } from './log.js';
 import type { ParagraphResult } from './types.js';
 
@@ -99,7 +100,7 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
 }
 
 /**
- * CLI args for one headless call. `model` (e.g. from `LEAFFOCUS_MODEL`) is passed as `--model`;
+ * CLI args for one headless call. `model` (from config, `LEAFFOCUS_MODEL`) is passed as `--model`;
  * when unset the CLI's default model is used.
  *
  * --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
@@ -107,7 +108,7 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
  * emit its answer through an internal tool call, which alone can exceed 1 turn —
  * observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
  */
-export function buildClaudeArgs(prompt: string, model: string | undefined = process.env.LEAFFOCUS_MODEL): string[] {
+export function buildClaudeArgs(prompt: string, model: string | undefined = config.model): string[] {
   const args = [
     '-p',
     prompt,

@@ -14,8 +14,16 @@ bun run dev
 Requires the `claude` CLI installed, on your `PATH`, and logged in (`claude login`) — no API key
 needed in this app itself, it shells out to the CLI in headless mode (`claude -p`).
 
-Set `LEAFFOCUS_MODEL` (env or `.env`) to pick the model passed to `claude --model`, e.g.
-`LEAFFOCUS_MODEL=haiku bun run dev` for faster, cheaper answers. Unset uses the CLI default.
+## Configuration
+
+Set via environment variables or a `.env` file (Bun loads it automatically) — copy `.env.example`:
+
+| Variable               | Default     | Effect                                                                                  |
+| ---------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers               |
+| `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit   |
+
+One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
 ## Usage
 
