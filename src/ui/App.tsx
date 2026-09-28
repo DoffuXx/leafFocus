@@ -399,8 +399,8 @@ export default function App({ treeFile }: { treeFile: string }) {
             {visible.map(({ node, depth }, i) => (
               <SelectRow key={node.id} selected={start + i === outline.cursor}>
                 {'  '.repeat(depth)}
-                {node.segment ? <Text dimColor>[{node.segment}] </Text> : null}
                 {node.question}
+                {node.segment ? <Text dimColor> [on: {node.segment}]</Text> : null}
               </SelectRow>
             ))}
             {outlineMatches.length === 0 ? <Text dimColor>(no matching leaves)</Text> : null}
@@ -420,6 +420,8 @@ export default function App({ treeFile }: { treeFile: string }) {
             {pickingChildren.map((n, i) => (
               <SelectRow key={n.id} selected={i === pickCursor}>
                 {n.question}
+                {/* regenerated answers share their question: the paragraph tells them apart */}
+                <Text dimColor> — {n.paragraph}</Text>
               </SelectRow>
             ))}
           </Box>
@@ -441,11 +443,13 @@ export default function App({ treeFile }: { treeFile: string }) {
             </Text>
           </Box>
           <Box marginTop={1} flexDirection="column">
+            {notice ? <Text color="green">✓ {notice}</Text> : null}
             <InputBox value={buffer} placeholder="Ask about this segment…" />
             <KeyHints
               hints={[
                 ['Tab/↑↓', 'retarget'],
-                ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
+                (Boolean(buffer.trim()) || (leafCounts[segmentCursor] ?? 0) > 0) &&
+                  ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
                 ['Esc', 'back'],
               ]}
             />
