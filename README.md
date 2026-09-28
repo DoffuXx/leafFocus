@@ -14,14 +14,23 @@ bun run dev
 Requires the `claude` CLI installed, on your `PATH`, and logged in (`claude login`) — no API key
 needed in this app itself, it shells out to the CLI in headless mode (`claude -p`).
 
+## Release binary
+
+Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push origin v0.1.0`) builds standalone binaries for
+Linux, macOS (x64/arm64) and Windows and attaches them, with `leaffocus.example.yaml`, to a GitHub
+Release. No Bun needed to run them — only the `claude` CLI. Build locally with `bun run build`
+(→ `dist/leaffocus`).
+
 ## Configuration
 
-Set via environment variables or a `.env` file (Bun loads it automatically) — copy `.env.example`:
+Set in a YAML file, environment variables, or a `.env` file (Bun loads it automatically). Env vars
+override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
+`~/.config/leaffocus/config.yaml` (global) — copy `leaffocus.example.yaml`:
 
-| Variable               | Default     | Effect                                                                                  |
-| ---------------------- | ----------- | --------------------------------------------------------------------------------------- |
-| `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers               |
-| `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit   |
+| YAML key     | Variable               | Default     | Effect                                                                                |
+| ------------ | ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `model`      | `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers             |
+| `fullscreen` | `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
 
 One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
