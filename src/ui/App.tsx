@@ -97,6 +97,8 @@ export default function App({ treeFile }: { treeFile: string }) {
   const [outline, setOutline] = useState<{ query: string; cursor: number } | null>(null);
   /** Question of the in-flight `claude` call, shown while loading. */
   const [pendingQuestion, setPendingQuestion] = useState('');
+  /** Segments of the in-flight answer streamed so far (preview until the call completes). */
+  const [streamedSegments, setStreamedSegments] = useState<string[]>([]);
   /** Aborts the in-flight `claude` call (Esc while loading). */
   const abortRef = useRef<AbortController | null>(null);
 
@@ -133,11 +135,12 @@ export default function App({ treeFile }: { treeFile: string }) {
     const controller = new AbortController();
     abortRef.current = controller;
     setPendingQuestion(question);
+    setStreamedSegments([]);
     setMode('loading');
     try {
       const parentNode = tree.nodes[parentId];
       const context = parentId === ROOT_ID ? null : { paragraph: parentNode.paragraph, segment };
-      const result = await getParagraph(context, question, controller.signal);
+      const result = await getParagraph(context, question, controller.signal, setStreamedSegments);
 
       const next: TreeData = structuredClone(tree);
       const newId = addParagraph(next, parentId, segment, question, result);
@@ -402,8 +405,22 @@ export default function App({ treeFile }: { treeFile: string }) {
         <Text dimColor wrap="truncate-end">
           Q: {pendingQuestion}
         </Text>
+        {streamedSegments.length > 0 ? (
+          <Box borderStyle="round" borderDimColor paddingX={1}>
+            <Text>
+              {streamedSegments.map((s, i) => (
+                <Text key={i}>
+                  {i > 0 ? ' ' : ''}
+                  <Text underline color={segmentColor(0)}>
+                    {s}
+                  </Text>
+                </Text>
+              ))}
+            </Text>
+          </Box>
+        ) : null}
         <Text>
-          <Spinner /> Thinking…
+          <Spinner /> {streamedSegments.length > 0 ? `Writing… (${streamedSegments.length} segments)` : 'Thinking…'}
         </Text>
         <KeyHints hints={[['Esc', 'cancel']]} />
       </Box>
