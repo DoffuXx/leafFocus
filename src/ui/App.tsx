@@ -1,13 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
-import { ROOT_ID, addParagraph, countLeaves, getChildrenForSegment, loadTree, removeNode, saveTree } from '../tree.js';
+import {
+  ROOT_ID,
+  addParagraph,
+  countLeaves,
+  getChildrenForSegment,
+  getPath,
+  getSiblings,
+  loadTree,
+  removeNode,
+  saveTree,
+  totalCost,
+} from '../tree.js';
 import { getParagraph } from '../claude.js';
 import { exportSession } from '../export.js';
+import { filterOutline, flattenTree } from '../outline.js';
 import { splitParagraph } from '../paragraph.js';
 import { renderLeafPlant, renderLeafTrail, type TrailPartKind } from '../trail.js';
-import type { TreeData, TreeNode } from '../types.js';
+import type { TreeData, TreeNode, Usage } from '../types.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
+
+/** Max outline rows shown at once; the list scrolls with the cursor. */
+const OUTLINE_WINDOW = 15;
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
@@ -37,6 +52,11 @@ const TRAIL_STYLE: Record<TrailPartKind, { color?: string; bold?: boolean; dimCo
 
 export function leafCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'leaf' : 'leaves'}`;
+}
+
+/** e.g. `4.2s · $0.0031` */
+function formatUsage(usage: Usage): string {
+  return `${(usage.durationMs / 1000).toFixed(1)}s · $${usage.costUsd.toFixed(4)}`;
 }
 
 function Spinner() {
@@ -71,12 +91,18 @@ export default function App({ treeFile }: { treeFile: string }) {
   const [pickCursor, setPickCursor] = useState(0);
   /** True while waiting for y/n to delete the current leaf (Ctrl+D). */
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  /** Ctrl+T outline: filter text + selected row, or null when closed. */
+  const [outline, setOutline] = useState<{ query: string; cursor: number } | null>(null);
+  /** Aborts the in-flight `claude` call (Esc while loading). */
+  const abortRef = useRef<AbortController | null>(null);
 
   const currentNodeId = path[path.length - 1] as string;
   const currentNode = tree.nodes[currentNodeId];
   const segments = currentNode?.segments ?? [];
   const highlightedSegment = segments[segmentCursor] ?? null;
   const leafCounts = segments.map((s) => getChildrenForSegment(tree, currentNodeId, s).length);
+  const siblings = getSiblings(tree, currentNodeId);
+  const outlineMatches = outline ? filterOutline(flattenTree(tree), outline.query) : [];
 
   const treeRef = useRef(tree);
   useEffect(() => {
@@ -98,11 +124,13 @@ export default function App({ treeFile }: { treeFile: string }) {
    * Buffer and focus are only cleared on success, so after an error the question can be retried.
    */
   async function submitQuestion(question: string, parentId: string, segment: string | null, basePath: string[]) {
+    const controller = new AbortController();
+    abortRef.current = controller;
     setMode('loading');
     try {
       const parentNode = tree.nodes[parentId];
       const context = parentId === ROOT_ID ? null : { paragraph: parentNode.paragraph, segment };
-      const result = await getParagraph(context, question);
+      const result = await getParagraph(context, question, controller.signal);
 
       const next: TreeData = structuredClone(tree);
       const newId = addParagraph(next, parentId, segment, question, result);
@@ -115,9 +143,31 @@ export default function App({ treeFile }: { treeFile: string }) {
       setBuffer('');
       setMode('browsing');
     } catch (err) {
+      if (controller.signal.aborted) {
+        setNotice('Cancelled — your question is kept');
+        setMode('browsing');
+        return;
+      }
       setError(err instanceof Error ? err.message : String(err));
       setMode('error');
+    } finally {
+      abortRef.current = null;
     }
+  }
+
+  /** Opens `nodeId` with its full path from root (used by the outline jump and sibling switching). */
+  function openNode(nodeId: string): void {
+    setPath([ROOT_ID, ...getPath(tree, nodeId).map((n) => n.id)]);
+    setSegmentCursor(0);
+    setFocusMode(false);
+  }
+
+  /** Switches to the previous/next leaf asked from the same segment (e.g. regenerated answers), wrapping around. */
+  function switchSibling(step: 1 | -1): void {
+    if (siblings.length < 2) return;
+    const index = siblings.findIndex((n) => n.id === currentNodeId);
+    const next = siblings[(index + step + siblings.length) % siblings.length];
+    if (next) openNode(next.id);
   }
 
   function goBack() {
@@ -172,8 +222,30 @@ export default function App({ treeFile }: { treeFile: string }) {
       else if (key.escape || key.return) setMode('browsing');
       return;
     }
-    if (mode !== 'browsing') return;
+    if (mode === 'loading') {
+      if (key.escape) abortRef.current?.abort();
+      return;
+    }
     setNotice(null);
+
+    if (outline) {
+      if (key.escape) {
+        setOutline(null);
+      } else if (key.upArrow) {
+        setOutline({ ...outline, cursor: Math.max(0, outline.cursor - 1) });
+      } else if (key.downArrow) {
+        setOutline({ ...outline, cursor: Math.max(0, Math.min(outlineMatches.length - 1, outline.cursor + 1)) });
+      } else if (key.return) {
+        const chosen = outlineMatches[outline.cursor];
+        if (chosen) openNode(chosen.node.id);
+        setOutline(null);
+      } else if (key.backspace || key.delete) {
+        setOutline({ query: outline.query.slice(0, -1), cursor: 0 });
+      } else if (input && !key.ctrl && !key.meta) {
+        setOutline({ query: outline.query + input, cursor: 0 });
+      }
+      return;
+    }
 
     if (pickingChildren) {
       if (key.upArrow) {
@@ -204,6 +276,14 @@ export default function App({ treeFile }: { treeFile: string }) {
     }
     if (key.ctrl && input === 'd') {
       if (currentNodeId !== ROOT_ID) setConfirmingDelete(true);
+      return;
+    }
+    if (key.ctrl && input === 't') {
+      setOutline({ query: '', cursor: 0 });
+      return;
+    }
+    if (key.leftArrow || key.rightArrow) {
+      switchSibling(key.rightArrow ? 1 : -1);
       return;
     }
 
@@ -280,6 +360,7 @@ export default function App({ treeFile }: { treeFile: string }) {
 
   const leafHere = currentNode?.children.length ?? 0;
   const leafTotal = countLeaves(tree);
+  const sessionCost = totalCost(tree);
   const plant = renderLeafPlant(leafTotal, columns);
   const trail = renderLeafTrail(tree, path, columns);
 
@@ -292,6 +373,7 @@ export default function App({ treeFile }: { treeFile: string }) {
         <Text dimColor>
           {leafHere > 0 ? `${leafCountLabel(leafHere)} here · ` : ''}
           {leafCountLabel(leafTotal)} total
+          {sessionCost > 0 ? ` · $${sessionCost.toFixed(4)} session` : ''}
         </Text>
       </Box>
       <Text color="green">{plant.slice(0, -1).join('\n')}</Text>
@@ -313,7 +395,7 @@ export default function App({ treeFile }: { treeFile: string }) {
       <Box flexDirection="column">
         <Header />
         <Text>
-          <Spinner /> Thinking…
+          <Spinner /> Thinking… <Text dimColor>(Esc to cancel)</Text>
         </Text>
       </Box>
     );
@@ -341,6 +423,38 @@ export default function App({ treeFile }: { treeFile: string }) {
             Delete this leaf ({leafCountLabel(subtreeSize)} incl. everything under it)? y to confirm, any other key to
             cancel
           </Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (outline) {
+    const start = Math.max(0, Math.min(outline.cursor - Math.floor(OUTLINE_WINDOW / 2), outlineMatches.length - OUTLINE_WINDOW));
+    const visible = outlineMatches.slice(start, start + OUTLINE_WINDOW);
+    return (
+      <Box flexDirection="column">
+        <Header />
+        <Box borderStyle="round" borderColor="magenta" flexDirection="column" paddingX={1}>
+          <Text bold>
+            Outline — type to filter · ↑/↓ + Enter jump · Esc close ({outlineMatches.length}/{leafTotal})
+          </Text>
+          <Text>
+            {'/ '}
+            {outline.query}
+            <Text inverse> </Text>
+          </Text>
+          {visible.map(({ node, depth }, i) => {
+            const selected = start + i === outline.cursor;
+            return (
+              <Text key={node.id} color={selected ? 'green' : undefined} wrap="truncate-end">
+                {selected ? '> ' : '  '}
+                {'  '.repeat(depth)}
+                {node.segment ? <Text dimColor>[{node.segment}] </Text> : null}
+                {node.question}
+              </Text>
+            );
+          })}
+          {outlineMatches.length === 0 ? <Text dimColor>(no matching leaves)</Text> : null}
         </Box>
       </Box>
     );
@@ -391,7 +505,15 @@ export default function App({ treeFile }: { treeFile: string }) {
   return (
     <Box flexDirection="column">
       <Header />
-      {currentNode?.question ? <Text dimColor>Q: {currentNode.question}</Text> : null}
+      {currentNode?.question ? (
+        <Text dimColor>
+          Q: {currentNode.question}
+          {siblings.length > 1
+            ? ` · answer ${siblings.findIndex((n) => n.id === currentNodeId) + 1}/${siblings.length} (←/→)`
+            : ''}
+          {currentNode.usage ? ` · ${formatUsage(currentNode.usage)}` : ''}
+        </Text>
+      ) : null}
       {currentNode?.paragraph ? (
         <Box borderStyle="round" paddingX={1}>
           <Text>
@@ -416,8 +538,8 @@ export default function App({ treeFile }: { treeFile: string }) {
       <Box marginTop={1} flexDirection="column">
         <Text dimColor>
           Tab/↑↓ cycle segment (cyan=new, green=1 leaf, yellow=multiple) · Enter focuses/reopens ·
-          type + Enter ask generally · Backspace back (box empty) · Ctrl+R regenerate · Ctrl+D delete · Ctrl+E
-          export · q quit (box empty)
+          type + Enter ask generally · Backspace back (box empty) · ←/→ other answers · Ctrl+T outline · Ctrl+R
+          regenerate · Ctrl+D delete · Ctrl+E export · q quit (box empty)
         </Text>
         {notice ? <Text color="green">{notice}</Text> : null}
         <Box borderStyle="round" paddingX={1}>

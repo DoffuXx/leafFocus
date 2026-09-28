@@ -46,6 +46,7 @@ cp .env.example .env
 | ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
 | `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers            |
 | `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
+| `LEAFFOCUS_INSTRUCTIONS` | none      | Standing instructions added to every answer, e.g. `Answer in French.`                 |
 
 One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
@@ -74,11 +75,17 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 | type + `Enter`            | Ask/continue from the highlighted segment (new branch) |
 | `Backspace` (input empty) | Go back up                                             |
 | `q` (input empty)         | Save and quit                                          |
+| `←` / `→`                 | Switch between answers from the same segment           |
+| `Ctrl+T`                  | Outline: type to filter, `↑`/`↓` + `Enter` to jump     |
+| `Esc` (while thinking)    | Cancel the request (your question is kept)             |
 | `Ctrl+R`                  | Regenerate the current leaf (new sibling, old kept)    |
 | `Ctrl+D`                  | Delete the current leaf and its subtree (asks y/n)     |
 | `Ctrl+E`                  | Export the session as Markdown                         |
 
 On an error, `Esc`/`Enter` returns with your question still typed, so `Enter` retries.
+
+Each answer shows how long it took and what it cost next to its question; the header shows the
+session total.
 
 ## How it works
 
@@ -109,6 +116,7 @@ src/
   claude.ts         # prompt building, CLI call, output parsing/validation
   config.ts         # LEAFFOCUS_* env configuration
   export.ts         # Markdown export
+  outline.ts        # flattened/filtered tree for the Ctrl+T outline
   tree.ts           # tree data model + load/save
   session.ts        # session files + resume picker data
   paragraph.ts      # splits a paragraph into plain/segment spans for rendering
