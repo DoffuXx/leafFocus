@@ -9,15 +9,21 @@ import type { ParagraphResult, Usage } from './types.js';
  * Runs `claude` with stdin explicitly closed. `child_process.execFile` leaves the child's
  * stdin open as an unclosed pipe by default, which makes the CLI sit waiting on stdin before
  * eventually failing — closing it immediately avoids that stall.
+ * `onLine` receives each complete stdout line as it arrives (for streaming).
  * Aborting `signal` kills the child and rejects with an `AbortError`.
  */
-function runClaude(args: string[], signal?: AbortSignal): Promise<string> {
+function runClaude(args: string[], signal?: AbortSignal, onLine?: (line: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn('claude', args, { stdio: ['ignore', 'pipe', 'pipe'], signal });
     let stdout = '';
     let stderr = '';
+    let pending = '';
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk;
+      if (!onLine) return;
+      const lines = (pending + chunk).split('\n');
+      pending = lines.pop() ?? '';
+      for (const line of lines) onLine(line);
     });
     child.stderr.on('data', (chunk: Buffer) => {
       stderr += chunk;
@@ -75,14 +81,28 @@ export function buildPrompt(
 }
 
 /**
- * `claude --output-format json` prints either a JSON array of event objects (e.g. a `system`
- * init event followed by the final `result` event) or, depending on CLI version, the single
- * `result` object. Pulls the result event out, validates the shape, and joins the segments into
- * the paragraph, so every segment is a verbatim substring of it by construction.
+ * Splits CLI stdout into event objects: `--output-format json` prints a JSON array of events or,
+ * depending on CLI version, the single `result` object; `stream-json` prints one event per line.
+ */
+function parseEvents(stdout: string): unknown[] {
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return stdout
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line) as unknown);
+  }
+}
+
+/**
+ * Pulls the `result` event out of the CLI output (any format, see `parseEvents`), validates the
+ * shape, and joins the segments into the paragraph, so every segment is a verbatim substring of it
+ * by construction.
  */
 export function parseParagraphOutput(stdout: string): ParagraphResult {
-  const parsed: unknown = JSON.parse(stdout);
-  const events: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+  const events = parseEvents(stdout);
   const resultEvent = events.find(
     (e): e is CliResultEvent => typeof e === 'object' && e !== null && (e as { type?: unknown }).type === 'result'
   );
@@ -106,6 +126,58 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
 }
 
 /**
+ * Best-effort read of the segments so far from the partial `{"segments": ["…", "…` JSON streamed
+ * by the structured-output tool call. The last, still-open string is included as-is; a trailing
+ * incomplete escape is dropped. Never throws — a malformed prefix just yields fewer segments.
+ */
+export function extractPartialSegments(partialJson: string): string[] {
+  const start = partialJson.indexOf('[');
+  if (start < 0) return [];
+  const segments: string[] = [];
+  let current: string | null = null;
+  for (let i = start + 1; i < partialJson.length; i++) {
+    const ch = partialJson[i] as string;
+    if (current === null) {
+      if (ch === '"') current = '';
+      else if (ch === ']') break;
+      continue;
+    }
+    if (ch === '"') {
+      segments.push(current);
+      current = null;
+    } else if (ch === '\\') {
+      const length = partialJson[i + 1] === 'u' ? 6 : 2; // \uXXXX or \n-style
+      const escape = partialJson.slice(i, i + length);
+      if (escape.length < length) break; // escape cut off mid-stream
+      try {
+        current += JSON.parse(`"${escape}"`) as string;
+      } catch {
+        break;
+      }
+      i += length - 1;
+    } else {
+      current += ch;
+    }
+  }
+  if (current) segments.push(current);
+  return segments.map((s) => s.trim()).filter(Boolean);
+}
+
+/** `stream-json` line carrying a chunk of the structured-output tool's JSON input, else null. */
+function partialJsonDelta(line: string): string | null {
+  try {
+    const event = JSON.parse(line) as {
+      type?: string;
+      event?: { type?: string; delta?: { type?: string; partial_json?: string } };
+    };
+    const delta = event.type === 'stream_event' && event.event?.type === 'content_block_delta' ? event.event.delta : undefined;
+    return delta?.type === 'input_json_delta' ? (delta.partial_json ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * CLI args for one headless call. `model` is passed as `--model` (unset = CLI default) and
  * `instructions` is appended to the system prompt; both default to the app config.
  *
@@ -124,8 +196,13 @@ export function buildClaudeArgs(
   const args = [
     '-p',
     prompt,
+    // stream-json + partial messages: the answer's JSON arrives token by token, so the UI can
+    // show segments while they are written instead of after the whole call (--verbose is
+    // required by the CLI for stream-json in -p mode).
     '--output-format',
-    'json',
+    'stream-json',
+    '--verbose',
+    '--include-partial-messages',
     '--json-schema',
     JSON.stringify(PARAGRAPH_JSON_SCHEMA),
     '--append-system-prompt',
@@ -145,12 +222,14 @@ export function buildClaudeArgs(
 
 /**
  * Shells out to the `claude` CLI in headless mode and returns a validated paragraph + segments.
- * Pass `signal` to allow cancelling the call mid-flight.
+ * Pass `signal` to allow cancelling the call mid-flight, and `onPartial` to receive the segments
+ * written so far while the answer streams in (unvalidated preview; the resolved value is final).
  */
 export async function getParagraph(
   parent: { paragraph: string; segment: string | null } | null,
   question: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onPartial?: (segments: string[]) => void
 ): Promise<ParagraphResult> {
   const prompt = buildPrompt(parent, question);
   const requestId = randomUUID();
@@ -159,14 +238,24 @@ export async function getParagraph(
   appendLog({ event: 'request', requestId, question, prompt, model: config.model });
 
   try {
-    const stdout = await runClaude(buildClaudeArgs(prompt), signal);
+    let partialJson = '';
+    const stdout = await runClaude(buildClaudeArgs(prompt), signal, (line) => {
+      const delta = partialJsonDelta(line);
+      if (delta === null) return;
+      partialJson += delta;
+      onPartial?.(extractPartialSegments(partialJson));
+    });
 
     const result = parseParagraphOutput(stdout);
     appendLog({
       event: 'response',
       requestId,
       question,
-      stdout,
+      // token deltas would bloat the log; keep the other events (init, assistant, result)
+      stdout: stdout
+        .split('\n')
+        .filter((line) => line.trim() && !line.startsWith('{"type":"stream_event"'))
+        .join('\n'),
       segmentCount: result.segments.length,
       durationMs: elapsedMs(),
     });

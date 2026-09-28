@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { buildClaudeArgs, buildPrompt, parseParagraphOutput } from './claude';
+import { buildClaudeArgs, buildPrompt, extractPartialSegments, parseParagraphOutput } from './claude';
 
 describe('buildPrompt', () => {
   test('sends just the question when there is no parent context', () => {
@@ -46,12 +46,14 @@ describe('buildClaudeArgs', () => {
     expect(systemPrompt).toEndWith('Answer in French.');
   });
 
-  test('runs a fast, tool-less, JSON-output call with room for the structured-output turn', () => {
+  test('runs a fast, tool-less, streamed JSON-output call with room for the structured-output turn', () => {
     const args = buildClaudeArgs('hi', undefined);
     const flag = (name: string): string | undefined => args[args.indexOf(name) + 1];
 
     expect(args.slice(0, 2)).toEqual(['-p', 'hi']);
-    expect(flag('--output-format')).toBe('json');
+    expect(flag('--output-format')).toBe('stream-json');
+    expect(args).toContain('--verbose');
+    expect(args).toContain('--include-partial-messages');
     expect(flag('--max-turns')).toBe('3');
     expect(flag('--tools')).toBe('');
     expect(flag('--effort')).toBe('low');
@@ -123,5 +125,40 @@ describe('parseParagraphOutput', () => {
     const stdout = JSON.stringify([{ type: 'result', is_error: true, result: 'boom' }]);
 
     expect(() => parseParagraphOutput(stdout)).toThrow('boom');
+  });
+});
+
+describe('parseParagraphOutput (stream-json)', () => {
+  test('reads the result event from JSON lines', () => {
+    const stdout = [
+      { type: 'system', subtype: 'init' },
+      { type: 'stream_event', event: { type: 'content_block_delta' } },
+      { type: 'result', is_error: false, structured_output: { segments: ['One.', 'Two.'] } },
+    ]
+      .map((e) => JSON.stringify(e))
+      .join('\n');
+
+    expect(parseParagraphOutput(`${stdout}\n`)).toEqual({ paragraph: 'One. Two.', segments: ['One.', 'Two.'] });
+  });
+});
+
+describe('extractPartialSegments', () => {
+  test('returns nothing before the array opens', () => {
+    expect(extractPartialSegments('')).toEqual([]);
+    expect(extractPartialSegments('{"segm')).toEqual([]);
+  });
+
+  test('includes closed segments and the still-open one', () => {
+    expect(extractPartialSegments('{"segments": ["A leaf is", "It us')).toEqual(['A leaf is', 'It us']);
+  });
+
+  test('decodes escapes and drops an escape cut off mid-stream', () => {
+    expect(extractPartialSegments('{"segments": ["say \\"hi\\" \\u00e9')).toEqual(['say "hi" é']);
+    expect(extractPartialSegments('{"segments": ["tab\\')).toEqual(['tab']);
+    expect(extractPartialSegments('{"segments": ["x \\u00')).toEqual(['x']);
+  });
+
+  test('stops at the end of the array', () => {
+    expect(extractPartialSegments('{"segments": ["a", "b"], "x": ["c"]}')).toEqual(['a', 'b']);
   });
 });

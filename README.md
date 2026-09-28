@@ -16,6 +16,7 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 
 - **Focused answers**: one paragraph per question, no walls of text.
 - **Segmented by meaning**: every paragraph is split into verbatim chunks you can highlight.
+- **Live streaming**: segments appear as they are written, not after the whole answer.
 - **Drill-down branches**: ask a follow-up about any segment; it becomes a child node.
 - **Persistent sessions**: every run is saved and can be resumed later (`--resume`).
 - **Regenerate, delete, export**: re-ask a leaf, prune a branch, or export the session to Markdown.
@@ -105,6 +106,8 @@ session total.
 
 1. Your question (plus the parent paragraph and the focused segment, if any) is sent to
    `claude -p` with a JSON schema forcing `{ segments }` output.
+   The output is streamed (`--output-format stream-json --include-partial-messages`), so the
+   partial JSON is parsed as it arrives and the segments are previewed while the answer is written.
 2. The response is validated and the segments are joined into the paragraph, so each one is a
    **verbatim** chunk of it by construction.
 3. The result is added as a node in the tree and saved to disk.
