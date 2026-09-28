@@ -99,6 +99,18 @@ describe('renderLeafTrail', () => {
     expect(lines.every((l) => l.length <= 20)).toBe(true);
   });
 
+  test('measures wide (CJK/emoji) labels in terminal columns', () => {
+    const tree = createEmptyTree();
+    const path = [ROOT_ID];
+    for (const q of ['日本語の質問ですよね長い', '二番目の質問です二番目', '三番目の質問です三番目']) {
+      path.push(addParagraph(tree, path[path.length - 1] as string, null, q, result));
+    }
+    addParagraph(tree, path[path.length - 1] as string, null, '子供の質問はこちらです子供の質問', result);
+    const lines = text(renderLeafTrail(tree, path, 80));
+    expect(lines.every((l) => Bun.stringWidth(l) <= 80)).toBe(true);
+    expect(lines.at(-1)?.trim()).toBe('三番目の質問です…'); // cut to TRAIL_LABEL_MAX columns, not characters
+  });
+
   test('counts tree leaves beyond the plant cap as +N on the stem', () => {
     const { tree, path } = chain(TRAIL_PLANT_MAX + 3);
     expect(text(renderLeafTrail(tree, path, 200))[STEM]).toMatch(/┬─ \+3─$/);

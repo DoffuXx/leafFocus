@@ -59,10 +59,21 @@ export function nodeLabel(tree: TreeData, id: string): string {
   return node.segment ?? node.question;
 }
 
-/** Cuts `text` to `width` columns, ending with `…` when cut. */
+/** Terminal columns `text` takes: CJK and emoji are 2 wide, so `.length` would misalign the layout. */
+const textWidth = (text: string): number => Bun.stringWidth(text);
+
+const graphemes = new Intl.Segmenter();
+
+/** Cuts `text` to `width` columns (whole characters only), ending with `…` when cut. */
 function fit(text: string, width: number): string {
   if (width <= 0) return '';
-  return text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`;
+  if (textWidth(text) <= width) return text;
+  let out = '';
+  for (const { segment } of graphemes.segment(text)) {
+    if (textWidth(out + segment) > width - 1) break;
+    out += segment;
+  }
+  return `${out}…`;
 }
 
 /** Cuts a row of parts to `width` columns, keeping each part's kind. */
@@ -71,9 +82,9 @@ function clipParts(parts: TrailPart[], width: number): TrailPart[] {
   let left = width;
   for (const part of parts) {
     if (left <= 0) break;
-    const text = part.text.length <= left ? part.text : fit(part.text, left);
+    const text = fit(part.text, left);
     out.push({ kind: part.kind, text });
-    left -= text.length;
+    left -= textWidth(text);
   }
   return out;
 }
@@ -83,7 +94,7 @@ function layoutColumns(tree: TreeData, ids: string[], hidden: number): Column[] 
   const columns: Column[] = [];
   let x = 0;
   const add = (kind: Column['kind'], label: string) => {
-    const width = kind === 'fold' ? label.length : Math.max(LEAF_ART_WIDTH, label.length);
+    const width = kind === 'fold' ? textWidth(label) : Math.max(LEAF_ART_WIDTH, textWidth(label));
     columns.push({ kind, label, x, width });
     x += width + COLUMN_GAP;
   };
@@ -140,7 +151,7 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
     const gap = x - (lengths[r] as number);
     if (gap > 0) rows[r]?.push({ kind: 'stem', text: ' '.repeat(gap) });
     rows[r]?.push({ kind, text });
-    lengths[r] = Math.max(x, lengths[r] as number) + text.length;
+    lengths[r] = Math.max(x, lengths[r] as number) + textWidth(text);
   };
 
   const plantStart = pathWidth(columns);
@@ -158,7 +169,7 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
     const up = leafIndex++ % 2 === 0;
     const art = up ? (current ? CURRENT_LEAF_ART : LEAF_ART) : current ? CURRENT_LEAF_ART_DOWN : LEAF_ART_DOWN;
     const artTop = up ? UP_LABEL_ROW + 1 : STEM_ROW + 1;
-    const labelX = col.x + Math.floor((col.width - col.label.length) / 2);
+    const labelX = col.x + Math.floor((col.width - textWidth(col.label)) / 2);
     put(up ? UP_LABEL_ROW : DOWN_LABEL_ROW, labelX, current ? 'current' : 'stem', col.label);
     art.forEach((line, r) => put(artTop + r, center - 3, current ? 'current' : 'leaf', line));
     stem[center] = up ? '┴' : '┬';

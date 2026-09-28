@@ -1,5 +1,8 @@
-import { describe, expect, test } from 'bun:test';
-import { buildClaudeArgs, buildPrompt, extractPartialSegments, parseParagraphOutput } from './claude';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { buildClaudeArgs, buildPrompt, extractPartialSegments, getParagraph, parseParagraphOutput } from './claude';
 
 describe('buildPrompt', () => {
   test('sends just the question when there is no parent context', () => {
@@ -160,5 +163,30 @@ describe('extractPartialSegments', () => {
 
   test('stops at the end of the array', () => {
     expect(extractPartialSegments('{"segments": ["a", "b"], "x": ["c"]}')).toEqual(['a', 'b']);
+  });
+});
+
+describe('getParagraph', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'leaffocus-'));
+  const originalPath = process.env.PATH;
+  afterAll(() => {
+    process.env.PATH = originalPath;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('decodes multibyte characters split across stdout chunks', async () => {
+    // Fake `claude` writing its result a few bytes at a time, cutting through multibyte characters.
+    const line = `${JSON.stringify({ type: 'result', is_error: false, structured_output: { segments: ['日本語のテスト。', '🌱 ok'] } })}\n`;
+    const script = join(dir, 'claude');
+    writeFileSync(
+      script,
+      `#!/usr/bin/env bun\nconst b = Buffer.from(${JSON.stringify(line)});\n` +
+        'for (let i = 0; i < b.length; i += 5) { process.stdout.write(b.subarray(i, i + 5)); await Bun.sleep(2); }\n'
+    );
+    chmodSync(script, 0o755);
+    process.env.PATH = `${dir}:${originalPath}`;
+
+    const result = await getParagraph(null, 'q');
+    expect(result.paragraph).toBe('日本語のテスト。 🌱 ok');
   });
 });
