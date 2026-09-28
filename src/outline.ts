@@ -29,3 +29,8 @@ export function filterOutline(entries: OutlineEntry[], query: string): OutlineEn
     [node.question, node.segment ?? '', node.paragraph].some((text) => text.toLowerCase().includes(q))
   );
 }
+
+/** First row of a `size`-row window over `total` rows that keeps `cursor` centered, clamped to the list's ends. */
+export function windowStart(cursor: number, total: number, size: number): number {
+  return Math.max(0, Math.min(cursor - Math.floor(size / 2), total - size));
+}

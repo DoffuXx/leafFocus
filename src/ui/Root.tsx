@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Box, Text, useInput, useWindowSize } from 'ink';
-import App, { leafCountLabel } from './App.js';
-import { KeyHints } from './widgets.js';
+import App from './App.js';
+import { leafCountLabel } from './format.js';
+import { KeyHints, SelectRow } from './widgets.js';
 import { config } from '../config.js';
 import { listSessions, newSessionFile, type SessionSummary } from '../session.js';
 
@@ -51,11 +52,10 @@ export default function Root({ resume }: { resume: boolean }) {
             Resume a session
           </Text>
           {sessions.map((s, i) => (
-            <Text key={s.file} color={i === cursor ? 'green' : undefined} wrap="truncate-end">
-              {i === cursor ? '> ' : '  '}
+            <SelectRow key={s.file} selected={i === cursor}>
               <Text dimColor>{s.updatedAt.toLocaleString()}</Text> {s.title}{' '}
               <Text dimColor>({leafCountLabel(s.leafCount)})</Text>
-            </Text>
+            </SelectRow>
           ))}
         </Box>
         <KeyHints hints={[['↑/↓', 'select'], ['Enter', 'resume'], ['Esc', 'new session']]} />
