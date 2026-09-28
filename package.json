@@ -1,5 +1,19 @@
 {
   "name": "leaffocus",
+  "description": "Terminal UI that answers in one segmented paragraph and lets you drill into any segment, building a tree of conversation.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DoffuXx/leafFocus.git"
+  },
+  "keywords": [
+    "cli",
+    "tui",
+    "ink",
+    "claude",
+    "ai",
+    "bun"
+  ],
   "module": "index.tsx",
   "type": "module",
   "private": true,
