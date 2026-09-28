@@ -16,7 +16,7 @@ import { getParagraph } from '../claude.js';
 import { exportSession } from '../export.js';
 import { filterOutline, flattenTree } from '../outline.js';
 import { splitParagraph } from '../paragraph.js';
-import { renderLeafPlant, renderLeafTrail, type TrailPartKind } from '../trail.js';
+import { renderLeafTrail, type TrailPartKind } from '../trail.js';
 import type { TreeData, TreeNode, Usage } from '../types.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
@@ -361,7 +361,6 @@ export default function App({ treeFile }: { treeFile: string }) {
   const leafHere = currentNode?.children.length ?? 0;
   const leafTotal = countLeaves(tree);
   const sessionCost = totalCost(tree);
-  const plant = renderLeafPlant(leafTotal, columns);
   const trail = renderLeafTrail(tree, path, columns);
 
   const Header = () => (
@@ -376,8 +375,6 @@ export default function App({ treeFile }: { treeFile: string }) {
           {sessionCost > 0 ? ` · $${sessionCost.toFixed(4)} session` : ''}
         </Text>
       </Box>
-      <Text color="green">{plant.slice(0, -1).join('\n')}</Text>
-      <Text dimColor>{plant[plant.length - 1]}</Text>
       {trail.map((line, i) => (
         <Text key={i}>
           {line.map((part, j) => (

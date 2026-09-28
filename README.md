@@ -70,12 +70,11 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 
 ### Header
 
-- **Plant** — a vine across the top with one small ASCII leaf per leaf in the session, alternating
-  above and below the stem, so it grows as your tree does (`+N` when they no longer fit).
-- **Trail** — the path from `root` to where you are, drawn as a vine growing to the right: a veined ASCII
-  leaf per level (the current one filled in) with its label below, and the current leaf branching
-  out to its next leaves (`(n)` = how many leaves each of those has). When the path gets too wide,
-  old levels fold into `…N`.
+- **Vine** — one continuous vine growing to the right: a veined ASCII leaf per level of the path from
+  `root` to where you are (the current one filled in) with its label below, then one small leaf per
+  leaf in the session alternating above and below the stem, so it grows as your tree does (`+N` when
+  they no longer fit), and finally the current leaf branching out to its next leaves (`(n)` = how
+  many leaves each of those has). When the path gets too wide, old levels fold into `…N`.
 
 ### Keys
 
@@ -131,7 +130,7 @@ src/
   tree.ts           # tree data model + load/save
   session.ts        # session files + resume picker data
   paragraph.ts      # splits a paragraph into plain/segment spans for rendering
-  trail.ts          # ASCII header: growing leaf plant + leaf trail
+  trail.ts          # ASCII header: one vine (leaf trail + growing plant)
   log.ts            # JSON-lines debug log
   types.ts          # shared types
   ui/Root.tsx       # session picker vs. running app
