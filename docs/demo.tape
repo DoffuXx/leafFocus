@@ -1,5 +1,6 @@
 # Records docs/demo.gif with charmbracelet/vhs (needs ttyd, ffmpeg and a logged-in `claude` CLI).
 # Run from the repo root: vhs docs/demo.tape
+# The "Thinking…" waits in the committed GIF were then sped up 6x with ffmpeg (select filter on those frames).
 
 Output docs/demo.gif
 
