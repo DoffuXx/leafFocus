@@ -1,0 +1,38 @@
+# Release: on a `v*` tag push, compile standalone binaries (scripts/build.ts) for each platform
+# and attach them, plus the example YAML config, to a GitHub Release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun test
+
+      - name: Build binaries
+        run: |
+          for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 windows-x64; do
+            bun scripts/build.ts bun-$target
+          done
+          cp leaffocus.example.yaml dist/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

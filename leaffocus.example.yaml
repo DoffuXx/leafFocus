@@ -1,0 +1,12 @@
+# leafFocus config. Copy to ./leaffocus.yaml (per project) or ~/.config/leaffocus/config.yaml (global).
+# All settings are optional; LEAFFOCUS_* env vars (or .env) override these.
+
+# Model passed to `claude --model`, e.g. haiku, sonnet, opus. Omit for the claude CLI's default.
+# model: haiku
+
+# true = full-screen mode (alternate screen, full terminal height, terminal restored on exit).
+# false = render inline below your shell prompt.
+fullscreen: false
+
+# Standing instructions added to every answer, e.g. "Answer in French." or "Explain like I'm new to this."
+# instructions: Answer in French.
