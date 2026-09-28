@@ -143,6 +143,26 @@ describe('removeNode', () => {
     expect(removeNode(tree, ROOT_ID)).toBe(0);
     expect(tree.nodes[ROOT_ID]).toBeDefined();
   });
+
+  test('returns 0 and leaves the tree untouched for an unknown id', () => {
+    const tree = createEmptyTree();
+    addParagraph(tree, ROOT_ID, null, 'q', { paragraph: 'p', segments: ['p'] });
+
+    expect(removeNode(tree, 'missing')).toBe(0);
+    expect(countLeaves(tree)).toBe(1);
+  });
+});
+
+describe('countLeaves', () => {
+  test('counts every node except the root', () => {
+    const tree = createEmptyTree();
+    expect(countLeaves(tree)).toBe(0);
+
+    const a = addParagraph(tree, ROOT_ID, null, 'q1', { paragraph: 'p1', segments: ['x'] });
+    addParagraph(tree, a, 'x', 'q2', { paragraph: 'p2', segments: ['y'] });
+
+    expect(countLeaves(tree)).toBe(2);
+  });
 });
 
 describe('loadTree / saveTree', () => {
