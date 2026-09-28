@@ -1,0 +1,24 @@
+{
+  "name": "leaffocus",
+  "module": "index.tsx",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run index.tsx",
+    "start": "bun run index.tsx",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.0",
+    "ink": "^7.1.1",
+    "openai": "^7.17.0",
+    "react": "^19.3.0",
+    "zod": "^4.6.5"
+  }
+}
