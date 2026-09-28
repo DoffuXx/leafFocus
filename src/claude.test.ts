@@ -37,6 +37,16 @@ describe('buildClaudeArgs', () => {
   test('omits --model when no model is set', () => {
     expect(buildClaudeArgs('hi', '')).not.toContain('--model');
   });
+
+  test('runs a tool-less, JSON-output call with room for the structured-output turn', () => {
+    const args = buildClaudeArgs('hi', undefined);
+    const flag = (name: string): string | undefined => args[args.indexOf(name) + 1];
+
+    expect(args.slice(0, 2)).toEqual(['-p', 'hi']);
+    expect(flag('--output-format')).toBe('json');
+    expect(flag('--max-turns')).toBe('3');
+    expect(flag('--allowedTools')).toBe('');
+  });
 });
 
 describe('parseParagraphOutput', () => {
@@ -57,6 +67,29 @@ describe('parseParagraphOutput', () => {
       paragraph: 'Segment trees support range queries and point updates.',
       segments: ['range queries', 'point updates'],
     });
+  });
+
+  test('falls back to parsing the JSON in `result` when structured_output is absent', () => {
+    const stdout = JSON.stringify([
+      {
+        type: 'result',
+        is_error: false,
+        result: JSON.stringify({ paragraph: 'Segment trees support range queries.', segments: ['range queries'] }),
+      },
+    ]);
+
+    expect(parseParagraphOutput(stdout)).toEqual({
+      paragraph: 'Segment trees support range queries.',
+      segments: ['range queries'],
+    });
+  });
+
+  test('throws when the payload does not match the paragraph schema', () => {
+    const stdout = JSON.stringify([
+      { type: 'result', is_error: false, structured_output: { paragraph: '', segments: [] } },
+    ]);
+
+    expect(() => parseParagraphOutput(stdout)).toThrow();
   });
 
   test('drops segments that are not verbatim substrings of the paragraph', () => {
