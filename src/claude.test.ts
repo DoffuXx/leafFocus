@@ -46,34 +46,33 @@ describe('buildClaudeArgs', () => {
     expect(systemPrompt).toEndWith('Answer in French.');
   });
 
-  test('runs a tool-less, JSON-output call with room for the structured-output turn', () => {
+  test('runs a fast, tool-less, JSON-output call with room for the structured-output turn', () => {
     const args = buildClaudeArgs('hi', undefined);
     const flag = (name: string): string | undefined => args[args.indexOf(name) + 1];
 
     expect(args.slice(0, 2)).toEqual(['-p', 'hi']);
     expect(flag('--output-format')).toBe('json');
     expect(flag('--max-turns')).toBe('3');
-    expect(flag('--allowedTools')).toBe('');
+    expect(flag('--tools')).toBe('');
+    expect(flag('--effort')).toBe('low');
+    expect(args).toContain('--strict-mcp-config');
   });
 });
 
 describe('parseParagraphOutput', () => {
-  test('reads paragraph + segments from structured_output on the result event', () => {
+  test('reads segments from structured_output and joins them into the paragraph', () => {
     const stdout = JSON.stringify([
       { type: 'system', subtype: 'init' },
       {
         type: 'result',
         is_error: false,
-        structured_output: {
-          paragraph: 'Segment trees support range queries and point updates.',
-          segments: ['range queries', 'point updates'],
-        },
+        structured_output: { segments: ['Segment trees support range queries', ' and point updates. '] },
       },
     ]);
 
     expect(parseParagraphOutput(stdout)).toEqual({
       paragraph: 'Segment trees support range queries and point updates.',
-      segments: ['range queries', 'point updates'],
+      segments: ['Segment trees support range queries', 'and point updates.'],
     });
   });
 
@@ -84,7 +83,7 @@ describe('parseParagraphOutput', () => {
         is_error: false,
         duration_ms: 4200,
         total_cost_usd: 0.0031,
-        structured_output: { paragraph: 'Range queries.', segments: ['Range queries.'] },
+        structured_output: { segments: ['Range queries.'] },
       },
     ]);
 
@@ -93,65 +92,25 @@ describe('parseParagraphOutput', () => {
 
   test('falls back to parsing the JSON in `result` when structured_output is absent', () => {
     const stdout = JSON.stringify([
-      {
-        type: 'result',
-        is_error: false,
-        result: JSON.stringify({ paragraph: 'Segment trees support range queries.', segments: ['range queries'] }),
-      },
+      { type: 'result', is_error: false, result: JSON.stringify({ segments: ['Segment trees support range queries.'] }) },
     ]);
 
     expect(parseParagraphOutput(stdout)).toEqual({
       paragraph: 'Segment trees support range queries.',
-      segments: ['range queries'],
+      segments: ['Segment trees support range queries.'],
     });
   });
 
   test('accepts a single result object (newer CLI versions) instead of an event array', () => {
-    const stdout = JSON.stringify({
-      type: 'result',
-      is_error: false,
-      structured_output: { paragraph: 'Segment trees support range queries.', segments: ['range queries'] },
-    });
+    const stdout = JSON.stringify({ type: 'result', is_error: false, structured_output: { segments: ['Range queries.'] } });
 
-    expect(parseParagraphOutput(stdout)).toEqual({
-      paragraph: 'Segment trees support range queries.',
-      segments: ['range queries'],
-    });
+    expect(parseParagraphOutput(stdout).paragraph).toBe('Range queries.');
   });
 
-  test('throws when the payload does not match the paragraph schema', () => {
-    const stdout = JSON.stringify([
-      { type: 'result', is_error: false, structured_output: { paragraph: '', segments: [] } },
-    ]);
+  test('throws when the payload does not match the segments schema', () => {
+    const stdout = JSON.stringify([{ type: 'result', is_error: false, structured_output: { segments: [] } }]);
 
     expect(() => parseParagraphOutput(stdout)).toThrow();
-  });
-
-  test('drops segments that are not verbatim substrings of the paragraph', () => {
-    const stdout = JSON.stringify([
-      {
-        type: 'result',
-        is_error: false,
-        structured_output: {
-          paragraph: 'Segment trees support range queries.',
-          segments: ['range queries', 'a paraphrased segment not in the text'],
-        },
-      },
-    ]);
-
-    expect(parseParagraphOutput(stdout).segments).toEqual(['range queries']);
-  });
-
-  test('throws when none of the segments are verbatim substrings', () => {
-    const stdout = JSON.stringify([
-      {
-        type: 'result',
-        is_error: false,
-        structured_output: { paragraph: 'Segment trees support range queries.', segments: ['nope'] },
-      },
-    ]);
-
-    expect(() => parseParagraphOutput(stdout)).toThrow('verbatim');
   });
 
   test('throws when no result event is present', () => {
