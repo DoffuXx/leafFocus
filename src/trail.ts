@@ -9,14 +9,14 @@ export const TRAIL_LABEL_MAX = 18;
 export const TRAIL_CHILD_ROOM = 20;
 
 /**
- * Drawn for each leaf on the path, midrib and veins included, alternating above and below the stem
- * like a branch; the current one is filled in. Style adapted from the veined leaf at
- * https://www.asciiart.eu/plants/leaf.
+ * Drawn for each leaf on the path: pointed tip, rounded blade with chevron veins along the midrib,
+ * tapering to a petiole on the stem (the same `\|/` / `/|\` as the small plant leaves). Leaves
+ * alternate above and below the stem like a branch; the current one is filled in.
  */
-const LEAF_ART = ['  .^.  ', " /'|'\\ ", "( '|' )", " '.|.' "];
-const CURRENT_LEAF_ART = ['  .^.  ', ' /#|#\\ ', '(##|##)', " '.|.' "];
-const LEAF_ART_DOWN = [" .'|'. ", "( '|' )", " \\'|'/ ", "  'v'  "];
-const CURRENT_LEAF_ART_DOWN = [" .'|'. ", '(##|##)', ' \\#|#/ ', "  'v'  "];
+const LEAF_ART = ['  .^.  ', ' /\\|/\\ ', '(\\\\|//)', '  \\|/  '];
+const CURRENT_LEAF_ART = ['  .^.  ', ' /#|#\\ ', '(##|##)', '  \\|/  '];
+const LEAF_ART_DOWN = ['  /|\\  ', '(//|\\\\)', ' \\/|\\/ ', "  'v'  "];
+const CURRENT_LEAF_ART_DOWN = ['  /|\\  ', '(##|##)', ' \\#|#/ ', "  'v'  "];
 const LEAF_ART_WIDTH = 7;
 const COLUMN_GAP = 2;
 /** Rows: labels of upper leaves, 4 of upper leaf art, the stem, 4 of lower leaf art, their labels. */

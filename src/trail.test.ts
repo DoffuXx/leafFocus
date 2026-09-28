@@ -39,11 +39,11 @@ describe('renderLeafTrail', () => {
     expect(text(lines)).toEqual([
       ' root',
       '  .^.  ',
-      " /'|'\\ ",
-      "( '|' )",
-      " '.|.'            \\|/",
+      " /\\|/\\ ",
+      '(\\\\|//)',
+      '  \\|/             \\|/',
       '───┴────────┬──────┴─',
-      "          .'|'. ",
+      '           /|\\  ',
       '         (##|##)',
       '          \\#|#/ ',
       "           'v'  ",
@@ -64,7 +64,7 @@ describe('renderLeafTrail', () => {
     addParagraph(tree, path[1] as string, 'z', 'what?', result);
     expect(text(renderLeafTrail(tree, path, 80)).slice(STEM, STEM + 3)).toEqual([
       '───┴────────┬──────┴───┬───┴───┬───┴──┬── "why?" (1)',
-      "          .'|'.       /|\\     /|\\     ├── \"how?\"",
+      '           /|\\        /|\\     /|\\     ├── "how?"',
       '         (##|##)                      └── "what?"',
     ]);
   });
