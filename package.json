@@ -1,5 +1,6 @@
 {
   "name": "leaffocus",
+  "version": "0.1.0",
   "description": "Terminal UI that answers in one segmented paragraph and lets you drill into any segment, building a tree of conversation.",
   "license": "MIT",
   "repository": {

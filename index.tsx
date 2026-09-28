@@ -1,7 +1,6 @@
 import { render } from 'ink';
 import Root from './src/ui/Root.js';
 import { config } from './src/config.js';
+import { cli } from './src/cli.js';
 
-const resume = process.argv.includes('--resume') || process.argv.includes('-r');
-
-render(<Root resume={resume} />, { alternateScreen: config.fullscreen });
+render(<Root resume={cli.resume} />, { alternateScreen: config.fullscreen });
