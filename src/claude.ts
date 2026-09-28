@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { config } from './config.js';
 import { appendLog } from './log.js';
 import type { ParagraphResult } from './types.js';
 
@@ -98,39 +100,60 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
   return { paragraph, segments: verbatimSegments };
 }
 
+/**
+ * CLI args for one headless call. `model` (from config, `LEAFFOCUS_MODEL`) is passed as `--model`;
+ * when unset the CLI's default model is used.
+ *
+ * --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
+ * --max-turns 3 (not 1): forcing structured output via --json-schema makes the CLI
+ * emit its answer through an internal tool call, which alone can exceed 1 turn —
+ * observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
+ */
+export function buildClaudeArgs(prompt: string, model: string | undefined = config.model): string[] {
+  const args = [
+    '-p',
+    prompt,
+    '--output-format',
+    'json',
+    '--json-schema',
+    JSON.stringify(PARAGRAPH_JSON_SCHEMA),
+    '--append-system-prompt',
+    SYSTEM_PROMPT,
+    '--max-turns',
+    '3',
+    '--allowedTools',
+    '',
+  ];
+  return model ? [...args, '--model', model] : args;
+}
+
 /** Shells out to the `claude` CLI in headless mode and returns a validated paragraph + segments. */
 export async function getParagraph(
   parent: { paragraph: string; segment: string | null } | null,
   question: string
 ): Promise<ParagraphResult> {
   const prompt = buildPrompt(parent, question);
-  appendLog({ event: 'request', question, prompt });
+  const requestId = randomUUID();
+  const startedAt = performance.now();
+  const elapsedMs = (): number => Math.round(performance.now() - startedAt);
+  appendLog({ event: 'request', requestId, question, prompt, model: config.model });
 
   try {
-    // --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
-    // --max-turns 3 (not 1): forcing structured output via --json-schema makes the CLI
-    // emit its answer through an internal tool call, which alone can exceed 1 turn —
-    // observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
-    const stdout = await runClaude([
-      '-p',
-      prompt,
-      '--output-format',
-      'json',
-      '--json-schema',
-      JSON.stringify(PARAGRAPH_JSON_SCHEMA),
-      '--append-system-prompt',
-      SYSTEM_PROMPT,
-      '--max-turns',
-      '3',
-      '--allowedTools',
-      '',
-    ]);
+    const stdout = await runClaude(buildClaudeArgs(prompt));
 
     const result = parseParagraphOutput(stdout);
-    appendLog({ event: 'response', question, stdout, segmentCount: result.segments.length });
+    appendLog({
+      event: 'response',
+      requestId,
+      question,
+      stdout,
+      segmentCount: result.segments.length,
+      durationMs: elapsedMs(),
+    });
     return result;
   } catch (err) {
-    appendLog({ event: 'error', question, error: err instanceof Error ? err.message : String(err) });
+    const error = err instanceof Error ? err.message : String(err);
+    appendLog({ event: 'error', requestId, question, error, durationMs: elapsedMs() });
     throw err;
   }
 }

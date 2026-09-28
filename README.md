@@ -15,6 +15,8 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 - **Segmented by meaning**: every paragraph is split into verbatim chunks you can highlight.
 - **Drill-down branches**: ask a follow-up about any segment; it becomes a child node.
 - **Persistent sessions**: every run is saved and can be resumed later (`--resume`).
+- **Regenerate, delete, export**: re-ask a leaf, prune a branch, or export the session to Markdown.
+- **Configurable**: choose the model and full-screen mode via `LEAFFOCUS_*` env vars or `.env`.
 - **No API key**: uses your logged-in [`claude` CLI](https://docs.claude.com/en/docs/claude-code) in headless mode.
 
 ## Requirements
@@ -30,6 +32,21 @@ cd leafFocus
 bun install
 bun run dev
 ```
+
+## Configuration
+
+Set via environment variables or a `.env` file (Bun loads it automatically). Copy `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+| Variable               | Default     | Effect                                                                                |
+| ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers            |
+| `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
+
+One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
 ## Usage
 
@@ -47,6 +64,11 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 | type + `Enter`            | Ask/continue from the highlighted segment (new branch) |
 | `Backspace` (input empty) | Go back up                                             |
 | `q` (input empty)         | Save and quit                                          |
+| `Ctrl+R`                  | Regenerate the current leaf (new sibling, old kept)    |
+| `Ctrl+D`                  | Delete the current leaf and its subtree (asks y/n)     |
+| `Ctrl+E`                  | Export the session as Markdown                         |
+
+On an error, `Esc`/`Enter` returns with your question still typed, so `Enter` retries.
 
 ## How it works
 
@@ -62,9 +84,12 @@ The CLI runs with `--allowedTools ''`, so it is a plain Q&A call with no file or
 | Path                               | Contents                                          |
 | ---------------------------------- | ------------------------------------------------- |
 | `.segment-tree/sessions/<id>.json` | One tree per session (listed by `--resume`)       |
+| `.segment-tree/exports/<id>.md`    | Markdown exports (`Ctrl+E`)                       |
 | `.segment-tree.log`                | JSON-lines log of every `claude` call (debugging) |
 
-Both are git-ignored.
+All are git-ignored. Each log entry is a `request`, then `response` or `error`, sharing a
+`requestId` (with `model` and `durationMs`). Logging is best-effort: a failed write never breaks
+a request.
 
 ## Project structure
 
@@ -72,6 +97,8 @@ Both are git-ignored.
 index.tsx           # entry point, parses --resume
 src/
   claude.ts         # prompt building, CLI call, output parsing/validation
+  config.ts         # LEAFFOCUS_* env configuration
+  export.ts         # Markdown export
   tree.ts           # tree data model + load/save
   session.ts        # session files + resume picker data
   paragraph.ts      # splits a paragraph into plain/segment spans for rendering
