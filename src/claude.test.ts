@@ -45,6 +45,16 @@ describe('buildClaudeArgs', () => {
     expect(systemPrompt).toContain('Respond only with the requested JSON');
     expect(systemPrompt).toEndWith('Answer in French.');
   });
+
+  test('runs a tool-less, JSON-output call with room for the structured-output turn', () => {
+    const args = buildClaudeArgs('hi', undefined);
+    const flag = (name: string): string | undefined => args[args.indexOf(name) + 1];
+
+    expect(args.slice(0, 2)).toEqual(['-p', 'hi']);
+    expect(flag('--output-format')).toBe('json');
+    expect(flag('--max-turns')).toBe('3');
+    expect(flag('--allowedTools')).toBe('');
+  });
 });
 
 describe('parseParagraphOutput', () => {
@@ -79,6 +89,29 @@ describe('parseParagraphOutput', () => {
     ]);
 
     expect(parseParagraphOutput(stdout).usage).toEqual({ durationMs: 4200, costUsd: 0.0031 });
+  });
+
+  test('falls back to parsing the JSON in `result` when structured_output is absent', () => {
+    const stdout = JSON.stringify([
+      {
+        type: 'result',
+        is_error: false,
+        result: JSON.stringify({ paragraph: 'Segment trees support range queries.', segments: ['range queries'] }),
+      },
+    ]);
+
+    expect(parseParagraphOutput(stdout)).toEqual({
+      paragraph: 'Segment trees support range queries.',
+      segments: ['range queries'],
+    });
+  });
+
+  test('throws when the payload does not match the paragraph schema', () => {
+    const stdout = JSON.stringify([
+      { type: 'result', is_error: false, structured_output: { paragraph: '', segments: [] } },
+    ]);
+
+    expect(() => parseParagraphOutput(stdout)).toThrow();
   });
 
   test('drops segments that are not verbatim substrings of the paragraph', () => {

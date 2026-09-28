@@ -6,9 +6,9 @@ import { countLeaves, loadTree } from './tree.js';
 export const SESSIONS_DIR = '.segment-tree/sessions';
 
 /** Creates the sessions dir if needed and returns a fresh, unused session file path. */
-export function newSessionFile(): string {
-  mkdirSync(SESSIONS_DIR, { recursive: true });
-  return join(SESSIONS_DIR, `${randomUUID()}.json`);
+export function newSessionFile(dir: string = SESSIONS_DIR): string {
+  mkdirSync(dir, { recursive: true });
+  return join(dir, `${randomUUID()}.json`);
 }
 
 export interface SessionSummary {
@@ -19,13 +19,13 @@ export interface SessionSummary {
 }
 
 /** Past sessions with at least one question asked, newest first — for a `claude -r`-style picker. */
-export function listSessions(): SessionSummary[] {
-  if (!existsSync(SESSIONS_DIR)) return [];
+export function listSessions(dir: string = SESSIONS_DIR): SessionSummary[] {
+  if (!existsSync(dir)) return [];
 
-  const summaries = readdirSync(SESSIONS_DIR)
+  const summaries = readdirSync(dir)
     .filter((f) => f.endsWith('.json'))
     .map((f) => {
-      const file = join(SESSIONS_DIR, f);
+      const file = join(dir, f);
       const tree = loadTree(file);
       const firstChildId = tree.nodes[tree.rootId]?.children[0];
       const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;

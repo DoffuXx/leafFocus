@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
 import {
   ROOT_ID,
   addParagraph,
@@ -16,6 +16,7 @@ import { getParagraph } from '../claude.js';
 import { exportSession } from '../export.js';
 import { filterOutline, flattenTree } from '../outline.js';
 import { splitParagraph } from '../paragraph.js';
+import { renderLeafPlant, renderLeafTrail, type TrailPartKind } from '../trail.js';
 import type { TreeData, TreeNode, Usage } from '../types.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
@@ -40,6 +41,14 @@ const ASCII_LEAF = [
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⡇⠀⠀⠀',
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠀⠀',
 ].join('\n');
+
+/** Trail colors: stem and past labels are dim, leaves green, where you are stands out. */
+const TRAIL_STYLE: Record<TrailPartKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
+  stem: { dimColor: true },
+  leaf: { color: 'green' },
+  current: { color: 'cyan', bold: true },
+  child: { color: 'green' },
+};
 
 export function leafCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'leaf' : 'leaves'}`;
@@ -68,6 +77,7 @@ function segmentColor(leafCount: number): string {
 
 export default function App({ treeFile }: { treeFile: string }) {
   const { exit } = useApp();
+  const { columns } = useWindowSize();
   const [tree, setTree] = useState<TreeData>(() => loadTree(treeFile));
   const [path, setPath] = useState<string[]>([ROOT_ID]);
   const [segmentCursor, setSegmentCursor] = useState(0);
@@ -348,28 +358,35 @@ export default function App({ treeFile }: { treeFile: string }) {
     }
   });
 
-  const breadcrumbLabel = (id: string): string => {
-    if (id === ROOT_ID) return 'root';
-    const node = tree.nodes[id];
-    if (!node) return '?';
-    return node.segment ?? node.question.slice(0, 24);
-  };
-  const breadcrumb = path.map(breadcrumbLabel).join(' > ');
   const leafHere = currentNode?.children.length ?? 0;
   const leafTotal = countLeaves(tree);
   const sessionCost = totalCost(tree);
+  const plant = renderLeafPlant(leafTotal, columns);
+  const trail = renderLeafTrail(tree, path, columns);
 
   const Header = () => (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">
-        LeafFocus
-      </Text>
-      <Text dimColor>
-        {breadcrumb}
-        {leafHere > 0 ? ` · ${leafCountLabel(leafHere)} here` : ''}
-        {leafTotal > 0 ? ` · ${leafCountLabel(leafTotal)} total` : ''}
-        {sessionCost > 0 ? ` · $${sessionCost.toFixed(4)} session` : ''}
-      </Text>
+    <Box flexDirection="column" marginBottom={1} width={columns}>
+      <Box justifyContent="space-between">
+        <Text bold color="cyan">
+          LeafFocus
+        </Text>
+        <Text dimColor>
+          {leafHere > 0 ? `${leafCountLabel(leafHere)} here · ` : ''}
+          {leafCountLabel(leafTotal)} total
+          {sessionCost > 0 ? ` · $${sessionCost.toFixed(4)} session` : ''}
+        </Text>
+      </Box>
+      <Text color="green">{plant.slice(0, -1).join('\n')}</Text>
+      <Text dimColor>{plant[plant.length - 1]}</Text>
+      {trail.map((line, i) => (
+        <Text key={i}>
+          {line.map((part, j) => (
+            <Text key={j} {...TRAIL_STYLE[part.kind]}>
+              {part.text}
+            </Text>
+          ))}
+        </Text>
+      ))}
     </Box>
   );
 
