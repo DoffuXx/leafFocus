@@ -35,8 +35,7 @@ function runClaude(args: string[], signal?: AbortSignal, onLine?: (line: string)
     child.on('error', reject);
     child.on('close', (code) => {
       if (code === 0) resolve(stdout);
-      // stdout is the whole stream-json dump; its last line (the result event) carries the error
-      else reject(new Error(`claude exited with code ${code}: ${stderr.trim() || lastLine(stdout)}`));
+      else reject(new Error(cliErrorMessage(code, stdout, stderr)));
     });
   });
 }
@@ -106,16 +105,38 @@ function parseEvents(stdout: string): unknown[] {
   }
 }
 
+/** The `result` event in the CLI output (any format, see `parseEvents`), if any. Throws on malformed output. */
+function findResultEvent(stdout: string): CliResultEvent | undefined {
+  return parseEvents(stdout).find(
+    (e): e is CliResultEvent => typeof e === 'object' && e !== null && (e as { type?: unknown }).type === 'result'
+  );
+}
+
+/**
+ * Message for a non-zero CLI exit. Prefers the readable reason the CLI puts in its error `result`
+ * event (e.g. "There's an issue with the selected model…") over stderr, which is a raw code like
+ * `[claude-code:unrecognized_model] {…}`.
+ */
+export function cliErrorMessage(code: number | null, stdout: string, stderr: string): string {
+  let reported: string | undefined;
+  try {
+    const resultEvent = findResultEvent(stdout);
+    reported = resultEvent?.is_error ? resultEvent.result : undefined;
+  } catch {
+    // partial/garbled stdout (e.g. killed mid-line): fall back to the raw output
+  }
+  return reported
+    ? `claude CLI reported an error: ${reported}`
+    : `claude exited with code ${code}: ${stderr.trim() || lastLine(stdout)}`;
+}
+
 /**
  * Pulls the `result` event out of the CLI output (any format, see `parseEvents`), validates the
  * shape, and joins the segments into the paragraph, so every segment is a verbatim substring of it
  * by construction.
  */
 export function parseParagraphOutput(stdout: string): ParagraphResult {
-  const events = parseEvents(stdout);
-  const resultEvent = events.find(
-    (e): e is CliResultEvent => typeof e === 'object' && e !== null && (e as { type?: unknown }).type === 'result'
-  );
+  const resultEvent = findResultEvent(stdout);
   if (!resultEvent) {
     throw new Error('claude CLI output did not contain a result event');
   }

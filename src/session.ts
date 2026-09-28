@@ -27,15 +27,14 @@ export function listSessions(dir: string = SESSIONS_DIR): SessionSummary[] {
     .filter((f) => f.endsWith('.json'))
     .map((f) => {
       const file = join(dir, f);
-      let tree: TreeData;
       try {
-        tree = loadTree(file);
+        const tree: TreeData = loadTree(file);
+        const firstChildId = tree.nodes[tree.rootId]?.children[0];
+        const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;
+        return title ? { file, updatedAt: statSync(file).mtime, title, leafCount: countLeaves(tree) } : null;
       } catch {
-        return null; // corrupt/partial JSON must not break the whole picker
+        return null; // corrupt/partial or non-tree JSON (e.g. `{}`) must not break the whole picker
       }
-      const firstChildId = tree.nodes[tree.rootId]?.children[0];
-      const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;
-      return title ? { file, updatedAt: statSync(file).mtime, title, leafCount: countLeaves(tree) } : null;
     })
     .filter((s): s is SessionSummary => s !== null);
 

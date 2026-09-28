@@ -59,9 +59,11 @@ describe('listSessions', () => {
     expect(listSessions(tmpDir)[0]?.title).toBe('(untitled)');
   });
 
-  test('skips unreadable session files instead of failing the whole list', () => {
+  test('skips unreadable or non-tree session files instead of failing the whole list', () => {
     const good = saveSession('good question', 1_000);
     writeFileSync(newSessionFile(tmpDir), '{ not json');
+    writeFileSync(newSessionFile(tmpDir), '{}');
+    writeFileSync(newSessionFile(tmpDir), 'null');
 
     expect(listSessions(tmpDir).map((s) => s.file)).toEqual([good]);
   });
