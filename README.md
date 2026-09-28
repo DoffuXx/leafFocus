@@ -45,28 +45,31 @@ Release. No Bun needed to run them — only the `claude` CLI. Build locally with
 
 ## Configuration
 
-Set in a YAML file, environment variables, or a `.env` file (Bun loads it automatically). Env vars
-override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
+Set with command-line flags, environment variables, a `.env` file (Bun loads it automatically), or a
+YAML file. Flags override env vars, which override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
 `~/.config/leaffocus/config.yaml` (global) — copy `leaffocus.example.yaml` or `.env.example`:
 
 ```bash
 cp leaffocus.example.yaml leaffocus.yaml   # or: cp .env.example .env
 ```
 
-| YAML key     | Variable               | Default     | Effect                                                                                |
-| ------------ | ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `model`      | `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers             |
-| `fullscreen` | `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
-| `instructions` | `LEAFFOCUS_INSTRUCTIONS` | none    | Standing instructions added to every answer, e.g. `Answer in French.`                 |
+| Flag                  | YAML key       | Variable                 | Default     | Effect                                                                                |
+| --------------------- | -------------- | ------------------------ | ----------- | ------------------------------------------------------------------------------------- |
+| `-m, --model`         | `model`        | `LEAFFOCUS_MODEL`        | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers             |
+| `-f, --fullscreen`    | `fullscreen`   | `LEAFFOCUS_FULLSCREEN`   | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
+| `-i, --instructions`  | `instructions` | `LEAFFOCUS_INSTRUCTIONS` | none        | Standing instructions added to every answer, e.g. `Answer in French.`                 |
 
-One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
+One-off: `bun run dev --fullscreen` or `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
 ## Usage
 
 ```bash
 bun run dev            # start a brand-new session (fresh tree)
-bun run dev --resume   # pick a past session to continue, like `claude -r`
+bun run dev --resume   # pick a past session to continue, like `claude -r` (short: -r)
+bun run dev --help     # list all flags (short: -h); --version / -v prints the version
 ```
+
+With a release binary, use `leaffocus [flags]` instead of `bun run dev`.
 
 ### Header
 
@@ -122,10 +125,11 @@ a request.
 ## Project structure
 
 ```
-index.tsx           # entry point, parses --resume
+index.tsx           # entry point
 src/
+  cli.ts            # command-line flags (--help, --version, --resume, config overrides)
   claude.ts         # prompt building, CLI call, output parsing/validation
-  config.ts         # LEAFFOCUS_* env configuration
+  config.ts         # flags / LEAFFOCUS_* env / YAML configuration
   export.ts         # Markdown export
   outline.ts        # flattened/filtered tree for the Ctrl+T outline
   tree.ts           # tree data model + load/save

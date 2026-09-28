@@ -2,12 +2,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { cli } from './cli.js';
 
 /**
  * App configuration. Sources, highest precedence first:
- * 1. `LEAFFOCUS_*` environment variables (Bun loads `.env` automatically, see `.env.example`)
- * 2. a YAML config file (see `leaffocus.example.yaml` and {@link CONFIG_PATHS})
- * 3. built-in defaults
+ * 1. command-line flags (see `src/cli.ts`)
+ * 2. `LEAFFOCUS_*` environment variables (Bun loads `.env` automatically, see `.env.example`)
+ * 3. a YAML config file (see `leaffocus.example.yaml` and {@link CONFIG_PATHS})
+ * 4. built-in defaults
  */
 export interface Config {
   /** Model passed to `claude --model` (e.g. `haiku`); undefined uses the CLI default. */
@@ -35,13 +37,18 @@ function parseBoolean(value: string): boolean {
   return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }
 
-/** Merges env vars over the YAML file values over defaults. Blank env values count as unset. */
-export function parseConfig(env: Record<string, string | undefined>, file: FileConfig = {}): Config {
+/** Merges flags over env vars over the YAML file values over defaults. Blank values count as unset. */
+export function parseConfig(
+  env: Record<string, string | undefined>,
+  file: FileConfig = {},
+  flags: FileConfig = {}
+): Config {
   const fullscreenEnv = env.LEAFFOCUS_FULLSCREEN?.trim();
   return {
-    model: env.LEAFFOCUS_MODEL?.trim() || file.model?.trim() || undefined,
-    fullscreen: fullscreenEnv ? parseBoolean(fullscreenEnv) : (file.fullscreen ?? false),
-    instructions: env.LEAFFOCUS_INSTRUCTIONS?.trim() || file.instructions?.trim() || undefined,
+    model: flags.model?.trim() || env.LEAFFOCUS_MODEL?.trim() || file.model?.trim() || undefined,
+    fullscreen: flags.fullscreen ?? (fullscreenEnv ? parseBoolean(fullscreenEnv) : (file.fullscreen ?? false)),
+    instructions:
+      flags.instructions?.trim() || env.LEAFFOCUS_INSTRUCTIONS?.trim() || file.instructions?.trim() || undefined,
   };
 }
 
@@ -64,4 +71,4 @@ function loadConfigFileOrExit(): FileConfig {
   }
 }
 
-export const config: Config = parseConfig(process.env, loadConfigFileOrExit());
+export const config: Config = parseConfig(process.env, loadConfigFileOrExit(), cli.overrides);
