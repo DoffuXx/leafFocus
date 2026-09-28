@@ -32,24 +32,24 @@ function runClaude(args: string[], signal?: AbortSignal): Promise<string> {
 
 const SYSTEM_PROMPT = 'You are a helpful assistant. Respond only with the requested JSON — no extra commentary.';
 
+// Only the segments are requested (the paragraph is rebuilt by joining them): asking for both made
+// the model write every answer twice, roughly doubling output tokens and generation time.
 const PARAGRAPH_INSTRUCTIONS =
-  'Write your answer as a single flowing paragraph. Then segment that entire paragraph into 2-10 ' +
-  'consecutive chunks by meaning/context — the segments, concatenated in order, must reconstruct the ' +
-  'whole paragraph with nothing left out. Copy each segment verbatim from the paragraph, in reading order.';
+  'Write your answer as a single flowing paragraph, split into 2-10 consecutive chunks by ' +
+  'meaning/context, in reading order. Return only the chunks — joined with spaces they must form ' +
+  'the whole paragraph with nothing left out.';
 
 // Passed to `claude --json-schema` to force structured output.
 const PARAGRAPH_JSON_SCHEMA = {
   type: 'object',
   properties: {
-    paragraph: { type: 'string' },
     segments: { type: 'array', minItems: 1, maxItems: 10, items: { type: 'string' } },
   },
-  required: ['paragraph', 'segments'],
+  required: ['segments'],
 };
 
 const responseSchema = z.object({
-  paragraph: z.string().min(1),
-  segments: z.array(z.string().min(1)).min(1),
+  segments: z.array(z.string().trim().min(1)).min(1),
 });
 
 interface CliResultEvent {
@@ -77,8 +77,8 @@ export function buildPrompt(
 /**
  * `claude --output-format json` prints either a JSON array of event objects (e.g. a `system`
  * init event followed by the final `result` event) or, depending on CLI version, the single
- * `result` object. Pulls the result event out, validates the shape, and keeps only segments
- * that are actual verbatim substrings of the paragraph (models sometimes paraphrase).
+ * `result` object. Pulls the result event out, validates the shape, and joins the segments into
+ * the paragraph, so every segment is a verbatim substring of it by construction.
  */
 export function parseParagraphOutput(stdout: string): ParagraphResult {
   const parsed: unknown = JSON.parse(stdout);
@@ -94,26 +94,25 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
   }
 
   const payload = resultEvent.structured_output ?? JSON.parse(resultEvent.result ?? 'null');
-  const { paragraph, segments } = responseSchema.parse(payload);
-
-  const verbatimSegments = segments.filter((s) => paragraph.includes(s));
-  if (verbatimSegments.length === 0) {
-    throw new Error('none of the returned segments appear verbatim in the paragraph');
-  }
+  const { segments } = responseSchema.parse(payload);
+  const paragraph = segments.join(' ');
 
   const usage: Usage | undefined =
     typeof resultEvent.duration_ms === 'number' && typeof resultEvent.total_cost_usd === 'number'
       ? { durationMs: resultEvent.duration_ms, costUsd: resultEvent.total_cost_usd }
       : undefined;
 
-  return { paragraph, segments: verbatimSegments, ...(usage ? { usage } : {}) };
+  return { paragraph, segments, ...(usage ? { usage } : {}) };
 }
 
 /**
  * CLI args for one headless call. `model` is passed as `--model` (unset = CLI default) and
  * `instructions` is appended to the system prompt; both default to the app config.
  *
- * --allowedTools '' keeps this a plain Q&A call, not an agent with file/bash access.
+ * Speed: --tools '' drops all built-in tool definitions (~30k input tokens, not just their
+ * permission like --allowedTools); --strict-mcp-config, --disable-slash-commands and
+ * --no-session-persistence skip loading the user's MCP servers and skills and writing a transcript;
+ * --effort low cuts thinking time — a short paragraph doesn't need deep reasoning.
  * --max-turns 3 (not 1): forcing structured output via --json-schema makes the CLI
  * emit its answer through an internal tool call, which alone can exceed 1 turn —
  * observed a real `error_max_turns` failure at max-turns 1 with num_turns: 2.
@@ -133,8 +132,13 @@ export function buildClaudeArgs(
     instructions ? `${SYSTEM_PROMPT}\n\n${instructions}` : SYSTEM_PROMPT,
     '--max-turns',
     '3',
-    '--allowedTools',
+    '--tools',
     '',
+    '--strict-mcp-config',
+    '--disable-slash-commands',
+    '--no-session-persistence',
+    '--effort',
+    'low',
   ];
   return model ? [...args, '--model', model] : args;
 }
