@@ -7,6 +7,8 @@ export interface Config {
   model: string | undefined;
   /** Render in the terminal's alternate screen at full height (like vim/htop), restoring the terminal on exit. */
   fullscreen: boolean;
+  /** Extra standing instructions appended to every call's system prompt (e.g. "answer in French"). */
+  instructions: string | undefined;
 }
 
 /** `1`/`true`/`yes`/`on` (any case) are true; anything else, including unset, is false. */
@@ -18,6 +20,7 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   return {
     model: env.LEAFFOCUS_MODEL?.trim() || undefined,
     fullscreen: parseBoolean(env.LEAFFOCUS_FULLSCREEN),
+    instructions: env.LEAFFOCUS_INSTRUCTIONS?.trim() || undefined,
   };
 }
 

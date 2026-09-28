@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { flattenTree } from './outline.js';
 import type { TreeData } from './types.js';
 
 export const EXPORTS_DIR = '.segment-tree/exports';
@@ -10,19 +11,11 @@ const MAX_HEADING_LEVEL = 6;
 /** Renders the whole tree depth-first as Markdown: one heading per leaf (question), then its paragraph. */
 export function treeToMarkdown(tree: TreeData): string {
   const lines: string[] = ['# leafFocus session', ''];
-
-  const walk = (nodeId: string, depth: number): void => {
-    for (const childId of tree.nodes[nodeId]?.children ?? []) {
-      const node = tree.nodes[childId];
-      if (!node) continue;
-      const hashes = '#'.repeat(Math.min(depth + 2, MAX_HEADING_LEVEL));
-      const from = node.segment ? ` _(on "${node.segment}")_` : '';
-      lines.push(`${hashes} Q: ${node.question}${from}`, '', node.paragraph, '');
-      walk(childId, depth + 1);
-    }
-  };
-  walk(tree.rootId, 0);
-
+  for (const { node, depth } of flattenTree(tree)) {
+    const hashes = '#'.repeat(Math.min(depth + 2, MAX_HEADING_LEVEL));
+    const from = node.segment ? ` _(on "${node.segment}")_` : '';
+    lines.push(`${hashes} Q: ${node.question}${from}`, '', node.paragraph, '');
+  }
   return lines.join('\n');
 }
 
