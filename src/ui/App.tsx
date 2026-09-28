@@ -282,7 +282,8 @@ export default function App({ treeFile }: { treeFile: string }) {
   function handleConversationKey(input: string, key: Key): void {
     if (key.return) {
       if (buffer.trim()) {
-        void submitQuestion(buffer.trim(), currentNodeId, null, path);
+        // anchored to the highlighted segment (null at root), so Enter on it can reopen the leaf later
+        void submitQuestion(buffer.trim(), currentNodeId, highlightedSegment, path);
       } else if (highlightedSegment) {
         setFocusMode(true);
       } else {
@@ -498,7 +499,7 @@ export default function App({ treeFile }: { treeFile: string }) {
         )}
         <Box marginTop={1} flexDirection="column">
           {notice ? <Text color="green">✓ {notice}</Text> : null}
-          <InputBox value={buffer} placeholder={currentNode?.paragraph ? 'Ask a follow-up…' : 'Ask a question…'} />
+          <InputBox value={buffer} placeholder={highlightedSegment ? 'Ask about the highlighted segment…' : 'Ask a question…'} />
           <KeyHints
             hints={[
               segments.length > 0 && ['Tab/↑↓', 'segment'],
