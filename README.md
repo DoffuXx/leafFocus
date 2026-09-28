@@ -104,11 +104,12 @@ session total.
 ## How it works
 
 1. Your question (plus the parent paragraph and the focused segment, if any) is sent to
-   `claude -p` with a JSON schema forcing `{ paragraph, segments }` output.
-2. The response is validated: only segments that appear **verbatim** in the paragraph are kept.
+   `claude -p` with a JSON schema forcing `{ segments }` output.
+2. The response is validated and the segments are joined into the paragraph, so each one is a
+   **verbatim** chunk of it by construction.
 3. The result is added as a node in the tree and saved to disk.
 
-The CLI runs with `--allowedTools ''`, so it is a plain Q&A call with no file or shell access.
+The CLI runs with `--tools ''`, so it is a plain Q&A call with no file or shell access.
 
 ## Storage
 
@@ -131,6 +132,7 @@ src/
   claude.ts         # prompt building, CLI call, output parsing/validation
   config.ts         # flags / LEAFFOCUS_* env / YAML configuration
   export.ts         # Markdown export
+  input.ts          # flattens typed/pasted input to one line
   outline.ts        # flattened/filtered tree for the Ctrl+T outline
   tree.ts           # tree data model + load/save
   session.ts        # session files + resume picker data
