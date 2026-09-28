@@ -1,4 +1,4 @@
-# 🍃 leaffocus
+# 🍃 leafFocus
 
 > A terminal UI for exploring answers as a **tree**, not a scrollback.
 

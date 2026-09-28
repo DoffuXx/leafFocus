@@ -5,7 +5,7 @@ import { ROOT_ID, addParagraph, createEmptyTree } from './tree';
 
 describe('treeToMarkdown', () => {
   test('renders only the title for an empty tree', () => {
-    expect(treeToMarkdown(createEmptyTree())).toBe('# LeafFocus session\n');
+    expect(treeToMarkdown(createEmptyTree())).toBe('# leafFocus session\n');
   });
 
   test('nests drill-downs one heading level deeper and notes the source segment', () => {
@@ -18,7 +18,7 @@ describe('treeToMarkdown', () => {
 
     expect(treeToMarkdown(tree)).toBe(
       [
-        '# LeafFocus session',
+        '# leafFocus session',
         '',
         '## Q: what is a segment tree?',
         '',
