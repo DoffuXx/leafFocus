@@ -18,6 +18,7 @@ import { filterOutline, flattenTree } from '../outline.js';
 import { splitParagraph } from '../paragraph.js';
 import { renderLeafTrail, type TrailPartKind } from '../trail.js';
 import type { TreeData, TreeNode, Usage } from '../types.js';
+import { InputBox, KeyHints } from './widgets.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
 
@@ -93,6 +94,8 @@ export default function App({ treeFile }: { treeFile: string }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   /** Ctrl+T outline: filter text + selected row, or null when closed. */
   const [outline, setOutline] = useState<{ query: string; cursor: number } | null>(null);
+  /** Question of the in-flight `claude` call, shown while loading. */
+  const [pendingQuestion, setPendingQuestion] = useState('');
   /** Aborts the in-flight `claude` call (Esc while loading). */
   const abortRef = useRef<AbortController | null>(null);
 
@@ -126,6 +129,7 @@ export default function App({ treeFile }: { treeFile: string }) {
   async function submitQuestion(question: string, parentId: string, segment: string | null, basePath: string[]) {
     const controller = new AbortController();
     abortRef.current = controller;
+    setPendingQuestion(question);
     setMode('loading');
     try {
       const parentNode = tree.nodes[parentId];
@@ -358,12 +362,13 @@ export default function App({ treeFile }: { treeFile: string }) {
     }
   });
 
+  const isRoot = currentNodeId === ROOT_ID;
   const leafHere = currentNode?.children.length ?? 0;
   const leafTotal = countLeaves(tree);
   const sessionCost = totalCost(tree);
   const trail = renderLeafTrail(tree, path, columns);
 
-  const Header = () => (
+  const header = (
     <Box flexDirection="column" marginBottom={1} width={columns}>
       <Box justifyContent="space-between">
         <Text bold color="cyan">
@@ -390,10 +395,14 @@ export default function App({ treeFile }: { treeFile: string }) {
   if (mode === 'loading') {
     return (
       <Box flexDirection="column">
-        <Header />
-        <Text>
-          <Spinner /> Thinking… <Text dimColor>(Esc to cancel)</Text>
+        {header}
+        <Text dimColor wrap="truncate-end">
+          Q: {pendingQuestion}
         </Text>
+        <Text>
+          <Spinner /> Thinking…
+        </Text>
+        <KeyHints hints={[['Esc', 'cancel']]} />
       </Box>
     );
   }
@@ -401,11 +410,11 @@ export default function App({ treeFile }: { treeFile: string }) {
   if (mode === 'error') {
     return (
       <Box flexDirection="column">
-        <Header />
+        {header}
         <Box borderStyle="round" borderColor="red" paddingX={1}>
           <Text color="red">Error: {error}</Text>
         </Box>
-        <Text dimColor>Esc/Enter to go back (your question is kept) · q to quit.</Text>
+        <KeyHints hints={[['Esc/Enter', 'back (your question is kept)'], ['q', 'quit']]} />
       </Box>
     );
   }
@@ -414,13 +423,11 @@ export default function App({ treeFile }: { treeFile: string }) {
     const subtreeSize = currentNode ? removeNode(structuredClone(tree), currentNodeId) : 0;
     return (
       <Box flexDirection="column">
-        <Header />
+        {header}
         <Box borderStyle="round" borderColor="red" paddingX={1}>
-          <Text color="red">
-            Delete this leaf ({leafCountLabel(subtreeSize)} incl. everything under it)? y to confirm, any other key to
-            cancel
-          </Text>
+          <Text color="red">Delete this leaf ({leafCountLabel(subtreeSize)} incl. everything under it)?</Text>
         </Box>
+        <KeyHints hints={[['y', 'delete'], ['any other key', 'cancel']]} />
       </Box>
     );
   }
@@ -430,15 +437,16 @@ export default function App({ treeFile }: { treeFile: string }) {
     const visible = outlineMatches.slice(start, start + OUTLINE_WINDOW);
     return (
       <Box flexDirection="column">
-        <Header />
+        {header}
         <Box borderStyle="round" borderColor="magenta" flexDirection="column" paddingX={1}>
-          <Text bold>
-            Outline — type to filter · ↑/↓ + Enter jump · Esc close ({outlineMatches.length}/{leafTotal})
+          <Text bold color="magenta">
+            Outline <Text dimColor>({outlineMatches.length}/{leafTotal})</Text>
           </Text>
           <Text>
-            {'/ '}
+            <Text color="magenta">{'/ '}</Text>
             {outline.query}
             <Text inverse> </Text>
+            {outline.query ? null : <Text dimColor>type to filter</Text>}
           </Text>
           {visible.map(({ node, depth }, i) => {
             const selected = start + i === outline.cursor;
@@ -453,6 +461,7 @@ export default function App({ treeFile }: { treeFile: string }) {
           })}
           {outlineMatches.length === 0 ? <Text dimColor>(no matching leaves)</Text> : null}
         </Box>
+        <KeyHints hints={[['↑/↓', 'select'], ['Enter', 'jump'], ['Esc', 'close']]} />
       </Box>
     );
   }
@@ -460,16 +469,19 @@ export default function App({ treeFile }: { treeFile: string }) {
   if (pickingChildren) {
     return (
       <Box flexDirection="column">
-        <Header />
+        {header}
         <Box borderStyle="round" borderColor="yellow" flexDirection="column" paddingX={1}>
-          <Text bold>Multiple leaves here — pick one (↑/↓ + Enter, Esc to cancel):</Text>
+          <Text bold color="yellow">
+            {pickingChildren.length} leaves on this segment — pick one
+          </Text>
           {pickingChildren.map((n, i) => (
-            <Text key={n.id} color={i === pickCursor ? 'green' : undefined}>
+            <Text key={n.id} color={i === pickCursor ? 'green' : undefined} wrap="truncate-end">
               {i === pickCursor ? '> ' : '  '}
-              {n.question.slice(0, 60)}
+              {n.question}
             </Text>
           ))}
         </Box>
+        <KeyHints hints={[['↑/↓', 'select'], ['Enter', 'open'], ['Esc', 'cancel']]} />
       </Box>
     );
   }
@@ -477,21 +489,25 @@ export default function App({ treeFile }: { treeFile: string }) {
   if (focusMode && highlightedSegment) {
     return (
       <Box flexDirection="column">
-        <Header />
+        {header}
+        <Text dimColor>
+          Segment {segmentCursor + 1}/{segments.length}
+          {leafCounts[segmentCursor] ? ` · ${leafCountLabel(leafCounts[segmentCursor] ?? 0)}` : ''}
+        </Text>
         <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="column">
           <Text bold color="cyan">
             {highlightedSegment}
           </Text>
         </Box>
         <Box marginTop={1} flexDirection="column">
-          <Text dimColor>Tab/↑↓ retarget segment · type + Enter ask about it · Esc back to conversation</Text>
-          <Box borderStyle="round" paddingX={1}>
-            <Text>
-              {'> '}
-              {buffer}
-              <Text inverse> </Text>
-            </Text>
-          </Box>
+          <InputBox value={buffer} placeholder="Ask about this segment…" />
+          <KeyHints
+            hints={[
+              ['Tab/↑↓', 'retarget'],
+              ['Enter', buffer.trim() ? 'ask' : 'open leaf'],
+              ['Esc', 'back'],
+            ]}
+          />
         </Box>
       </Box>
     );
@@ -501,7 +517,7 @@ export default function App({ treeFile }: { treeFile: string }) {
 
   return (
     <Box flexDirection="column">
-      <Header />
+      {header}
       {currentNode?.question ? (
         <Text dimColor>
           Q: {currentNode.question}
@@ -533,19 +549,27 @@ export default function App({ treeFile }: { treeFile: string }) {
         </Box>
       )}
       <Box marginTop={1} flexDirection="column">
-        <Text dimColor>
-          Tab/↑↓ cycle segment (cyan=new, green=1 leaf, yellow=multiple) · Enter focuses/reopens ·
-          type + Enter ask generally · Backspace back (box empty) · ←/→ other answers · Ctrl+T outline · Ctrl+R
-          regenerate · Ctrl+D delete · Ctrl+E export · q quit (box empty)
-        </Text>
-        {notice ? <Text color="green">{notice}</Text> : null}
-        <Box borderStyle="round" paddingX={1}>
-          <Text>
-            {'> '}
-            {buffer}
-            <Text inverse> </Text>
+        {notice ? <Text color="green">✓ {notice}</Text> : null}
+        <InputBox value={buffer} placeholder={currentNode?.paragraph ? 'Ask a follow-up…' : 'Ask a question…'} />
+        <KeyHints
+          hints={[
+            segments.length > 0 && ['Tab/↑↓', 'segment'],
+            segments.length > 0 && ['Enter', 'focus'],
+            (buffer.length > 0 || path.length > 1) && ['Esc', buffer ? 'clear' : 'back'],
+            siblings.length > 1 && ['←/→', 'other answers'],
+            ['Ctrl+T', 'outline'],
+            !isRoot && ['Ctrl+R', 'regenerate'],
+            !isRoot && ['Ctrl+D', 'delete'],
+            ['Ctrl+E', 'export'],
+            !buffer && ['q', 'quit'],
+          ]}
+        />
+        {segments.length > 0 ? (
+          <Text dimColor>
+            <Text color={segmentColor(0)}>■</Text> new <Text color={segmentColor(1)}>■</Text> 1 leaf{' '}
+            <Text color={segmentColor(2)}>■</Text> several
           </Text>
-        </Box>
+        ) : null}
       </Box>
     </Box>
   );
