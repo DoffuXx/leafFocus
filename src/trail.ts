@@ -9,16 +9,20 @@ export const TRAIL_LABEL_MAX = 18;
 export const TRAIL_CHILD_ROOM = 20;
 
 /**
- * Drawn above the stem for each leaf on the path, midrib and veins included; the current one is
- * filled in. Style adapted from the veined leaf at https://www.asciiart.eu/plants/leaf.
+ * Drawn for each leaf on the path, midrib and veins included, alternating above and below the stem
+ * like a branch; the current one is filled in. Style adapted from the veined leaf at
+ * https://www.asciiart.eu/plants/leaf.
  */
 const LEAF_ART = ['  .^.  ', " /'|'\\ ", "( '|' )", " '.|.' "];
 const CURRENT_LEAF_ART = ['  .^.  ', ' /#|#\\ ', '(##|##)', " '.|.' "];
+const LEAF_ART_DOWN = [" .'|'. ", "( '|' )", " \\'|'/ ", "  'v'  "];
+const CURRENT_LEAF_ART_DOWN = [" .'|'. ", '(##|##)', ' \\#|#/ ', "  'v'  "];
 const LEAF_ART_WIDTH = 7;
 const COLUMN_GAP = 2;
-/** Rows: 4 of leaf art, the stem, the labels. */
-const STEM_ROW = 4;
-const LABEL_ROW = 5;
+/** Rows: labels of upper leaves, 4 of upper leaf art, the stem, 4 of lower leaf art, their labels. */
+const UP_LABEL_ROW = 0;
+const STEM_ROW = 5;
+const DOWN_LABEL_ROW = 10;
 
 /** Max small leaves grown on the vine (one per tree leaf) before the rest become `+N`. */
 export const TRAIL_PLANT_MAX = 6;
@@ -104,8 +108,8 @@ function plantWidth(leafCount: number): number {
 }
 
 /**
- * The path (root → current) drawn as a vine growing to the right: an ASCII leaf per level above
- * the stem, its label below, then one small leaf per tree leaf (alternating above and below) so the
+ * The path (root → current) drawn as a branch growing to the right from a stem through the middle:
+ * an ASCII leaf per level, alternating above and below the stem with its label on the outside, then one small leaf per tree leaf (alternating above and below) so the
  * vine grows with the tree, and finally the current leaf branching out to its children. Old levels
  * fold into `…N` so it fits `width`.
  */
@@ -129,7 +133,7 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
   const overflow = children.length - branches.length;
   if (overflow > 0) branches.push({ kind: 'stem', text: `…${overflow} more` });
 
-  const rows: TrailLine[] = Array.from({ length: Math.max(LABEL_ROW + 1, STEM_ROW + branches.length) }, () => []);
+  const rows: TrailLine[] = Array.from({ length: Math.max(DOWN_LABEL_ROW + 1, STEM_ROW + branches.length) }, () => []);
   const lengths = rows.map(() => 0);
   /** Appends `text` to row `r` starting at column `x`, padding the gap with spaces. */
   const put = (r: number, x: number, kind: TrailPartKind, text: string) => {
@@ -142,13 +146,22 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
   const plantStart = pathWidth(columns);
   const branchStart = plantStart + plant;
   const stem = Array.from({ length: branchStart }, () => '─');
+  let leafIndex = 0;
   for (const col of columns) {
+    if (col.kind === 'fold') {
+      // folded levels sit on the stem itself
+      [...col.label].forEach((ch, j) => (stem[col.x + j] = ch));
+      continue;
+    }
     const center = col.x + Math.floor(col.width / 2);
-    put(LABEL_ROW, col.x + Math.floor((col.width - col.label.length) / 2), col.kind === 'current' ? 'current' : 'stem', col.label);
-    if (col.kind === 'fold') continue;
-    const art = col.kind === 'current' ? CURRENT_LEAF_ART : LEAF_ART;
-    art.forEach((line, r) => put(r, center - 3, col.kind === 'current' ? 'current' : 'leaf', line));
-    stem[center] = '┴';
+    const current = col.kind === 'current';
+    const up = leafIndex++ % 2 === 0;
+    const art = up ? (current ? CURRENT_LEAF_ART : LEAF_ART) : current ? CURRENT_LEAF_ART_DOWN : LEAF_ART_DOWN;
+    const artTop = up ? UP_LABEL_ROW + 1 : STEM_ROW + 1;
+    const labelX = col.x + Math.floor((col.width - col.label.length) / 2);
+    put(up ? UP_LABEL_ROW : DOWN_LABEL_ROW, labelX, current ? 'current' : 'stem', col.label);
+    art.forEach((line, r) => put(artTop + r, center - 3, current ? 'current' : 'leaf', line));
+    stem[center] = up ? '┴' : '┬';
   }
 
   // small plant leaves continue the same stem, alternating above and below it
@@ -156,7 +169,7 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
   for (let i = 0; i < shown; i++) {
     const x = plantStart + 2 + i * PLANT_LEAF_SPACING;
     const up = i % 2 === 0;
-    put(up ? STEM_ROW - 1 : LABEL_ROW, x - 1, 'leaf', up ? PLANT_LEAF_UP : PLANT_LEAF_DOWN);
+    put(up ? STEM_ROW - 1 : STEM_ROW + 1, x - 1, 'leaf', up ? PLANT_LEAF_UP : PLANT_LEAF_DOWN);
     stem[x] = up ? '┴' : '┬';
   }
   if (shown < leafCount) {
@@ -174,5 +187,7 @@ export function renderLeafTrail(tree: TreeData, path: string[], width: number): 
     put(r, branchStart + connector.length, branch.kind, branch.text);
   });
 
+  // drop the empty lower half when no leaf hangs below the stem
+  while (rows.length > STEM_ROW + 1 && rows[rows.length - 1]?.length === 0) rows.pop();
   return rows.map((row) => clipParts(row, width));
 }

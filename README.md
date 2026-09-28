@@ -70,11 +70,12 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 
 ### Header
 
-- **Vine** — one continuous vine growing to the right: a veined ASCII leaf per level of the path from
-  `root` to where you are (the current one filled in) with its label below, then one small leaf per
-  leaf in the session alternating above and below the stem, so it grows as your tree does (`+N` when
-  they no longer fit), and finally the current leaf branching out to its next leaves (`(n)` = how
-  many leaves each of those has). When the path gets too wide, old levels fold into `…N`.
+- **Vine** — one stem through the middle growing to the right like a tree branch: a veined ASCII
+  leaf per level of the path from `root` to where you are (the current one filled in), alternating
+  above and below the stem with its label on the outside, then one small leaf per leaf in the
+  session, so it grows as your tree does (`+N` when they no longer fit), and finally the current
+  leaf branching out to its next leaves (`(n)` = how many leaves each of those has). When the path
+  gets too wide, old levels fold into `…N` on the stem.
 
 ### Keys
 
