@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { ROOT_ID, addParagraph, createEmptyTree } from './tree';
-import { TRAIL_MAX_CHILDREN, nodeLabel, renderLeafTrail, type TrailLine } from './trail';
+import { TRAIL_MAX_CHILDREN, nodeLabel, renderLeafPlant, renderLeafTrail, type TrailLine } from './trail';
 import type { TreeData } from './types';
 
 const result = { paragraph: 'p', segments: ['p'] };
@@ -30,11 +30,17 @@ describe('nodeLabel', () => {
 });
 
 describe('renderLeafTrail', () => {
-  test('grows the path left to right and marks the current leaf', () => {
-    const { tree, path } = chain(2);
+  test('draws one ASCII leaf per path level on a stem, current one filled in', () => {
+    const { tree, path } = chain(1);
     const lines = renderLeafTrail(tree, path, 80);
-    expect(text(lines)).toEqual(['○ root ── ○ s1 ── ● s2']);
-    expect(lines[0]?.at(-1)).toEqual({ kind: 'current', text: '● s2' });
+    expect(text(lines)).toEqual([
+      ' ,-.    ,@. ',
+      '(   )  (@@@)',
+      " `-'    `@' ",
+      '──┴──────┴───',
+      'root    s1',
+    ]);
+    expect(lines[4]?.at(-1)).toEqual({ kind: 'current', text: 's1' });
   });
 
   test('branches the current leaf out to its children on the right', () => {
@@ -43,39 +49,56 @@ describe('renderLeafTrail', () => {
     addParagraph(tree, a, 'y', 'deeper', result);
     addParagraph(tree, path[1] as string, 'x', 'how?', result);
     addParagraph(tree, path[1] as string, 'z', 'what?', result);
-    expect(text(renderLeafTrail(tree, path, 80))).toEqual([
-      '○ root ── ● s1 ─┬─ "why?" (1)',
-      '                ├─ "how?"',
-      '                └─ "what?"',
+    expect(text(renderLeafTrail(tree, path, 80)).slice(3)).toEqual([
+      '──┴──────┴────┬── "why?" (1)',
+      'root    s1    ├── "how?"',
+      '              └── "what?"',
     ]);
   });
 
   test('uses a straight branch for a single child', () => {
-    const { tree, path } = chain(1);
-    addParagraph(tree, path[1] as string, 'x', 'only', result);
-    expect(text(renderLeafTrail(tree, path, 80))).toEqual(['○ root ── ● s1 ─── "only"']);
+    const { tree, path } = chain(0);
+    addParagraph(tree, ROOT_ID, null, 'only', result);
+    expect(text(renderLeafTrail(tree, path, 80))[3]).toBe('──┴─────── "only"');
   });
 
   test('folds old levels after root when the path is too wide', () => {
     const { tree, path } = chain(8);
-    const [line] = text(renderLeafTrail(tree, path, 45));
-    expect(line?.startsWith('○ root ── …')).toBe(true);
-    expect(line?.endsWith('● s8')).toBe(true);
-    expect(line!.length).toBeLessThanOrEqual(45 - 20);
+    const lines = text(renderLeafTrail(tree, path, 45));
+    expect(lines[4]).toMatch(/^root +…\d+ +/);
+    expect(lines[4]?.trimEnd().endsWith('s8')).toBe(true);
+    expect(lines[3]!.length).toBeLessThanOrEqual(45 - 20);
   });
 
   test('caps listed children', () => {
     const tree = createEmptyTree();
     for (let i = 0; i < TRAIL_MAX_CHILDREN + 2; i++) addParagraph(tree, ROOT_ID, null, `q${i}`, result);
     const lines = text(renderLeafTrail(tree, [ROOT_ID], 80));
-    expect(lines).toHaveLength(TRAIL_MAX_CHILDREN + 1);
-    expect(lines.at(-1)).toBe('        └─ …2 more');
+    expect(lines).toHaveLength(3 + TRAIL_MAX_CHILDREN + 1);
+    expect(lines.at(-1)).toBe('       └── …2 more');
   });
 
   test('fits every line to the width', () => {
     const tree = createEmptyTree();
     addParagraph(tree, ROOT_ID, null, 'a very long question that will not fit', result);
     const lines = text(renderLeafTrail(tree, [ROOT_ID], 20));
-    expect(lines).toEqual(['● root ─── "a very …']);
+    expect(lines[3]).toBe('──┴─────── "a very …');
+    expect(lines.every((l) => l.length <= 20)).toBe(true);
+  });
+});
+
+describe('renderLeafPlant', () => {
+  test('grows one leaf per tree leaf along a full-width stem', () => {
+    expect(renderLeafPlant(2, 16)).toEqual(['  _     _   ', ' (_)   (_)  ', '──┴─────┴───────']);
+  });
+
+  test('shows a bare stem for an empty tree', () => {
+    expect(renderLeafPlant(0, 8)).toEqual(['', '', '────────']);
+  });
+
+  test('counts leaves that do not fit as +N', () => {
+    const [, leaves, stem] = renderLeafPlant(10, 28);
+    expect(leaves).toBe(' (_)   (_)   (_)   +7');
+    expect(stem).toHaveLength(28);
   });
 });

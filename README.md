@@ -23,9 +23,12 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 
 ## Header
 
-The top of the screen is a full-width leaf trail that grows to the right: the path from `root` to
-the leaf you're on (`●`), with the current leaf branching out to its next leaves (`(n)` = how many
-leaves each of those has). When the path gets too wide, old levels fold into `…N`.
+- **Plant** — a stem across the top with one small ASCII leaf per leaf in the session, so it grows
+  as your tree does (`+N` when they no longer fit).
+- **Trail** — the path from `root` to where you are, drawn as a vine growing to the right: an ASCII
+  leaf per level (the current one filled in) with its label below, and the current leaf branching
+  out to its next leaves (`(n)` = how many leaves each of those has). When the path gets too wide,
+  old levels fold into `…N`.
 
 ## Keys
 

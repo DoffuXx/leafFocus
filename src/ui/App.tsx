@@ -3,7 +3,7 @@ import { Box, Text, useApp, useInput, useWindowSize } from 'ink';
 import { ROOT_ID, addParagraph, getChildrenForSegment, loadTree, saveTree } from '../tree.js';
 import { getParagraph } from '../claude.js';
 import { splitParagraph } from '../paragraph.js';
-import { renderLeafTrail, type TrailPartKind } from '../trail.js';
+import { renderLeafPlant, renderLeafTrail, type TrailPartKind } from '../trail.js';
 import type { TreeData, TreeNode } from '../types.js';
 
 type Mode = 'browsing' | 'loading' | 'error';
@@ -26,20 +26,10 @@ const ASCII_LEAF = [
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠃⠀⠀⠀',
 ].join('\n');
 
-/** Compact leaf drawn at the left of the header, beside the trail. */
-const LEAF_BANNER = [
-  '      .--.  ',
-  '    .\'  _/| ',
-  '   /  _/  | ',
-  '  | _/   /  ',
-  '  |/  _.\'   ',
-  '  /--\'      ',
-];
-const BANNER_WIDTH = Math.max(...LEAF_BANNER.map((l) => l.length));
-
-/** Trail line color: where you came from is dim, where you are stands out, what's below is green. */
+/** Trail colors: stem and past labels are dim, leaves green, where you are stands out. */
 const TRAIL_STYLE: Record<TrailPartKind, { color?: string; bold?: boolean; dimColor?: boolean }> = {
-  path: { dimColor: true },
+  stem: { dimColor: true },
+  leaf: { color: 'green' },
   current: { color: 'cyan', bold: true },
   child: { color: 'green' },
 };
@@ -245,35 +235,31 @@ export default function App({ treeFile }: { treeFile: string }) {
 
   const leafHere = currentNode?.children.length ?? 0;
   const leafTotal = Object.keys(tree.nodes).length - 1;
-  // banner + 2-col gap take the left side; the trail gets the rest of the width
-  const trail = renderLeafTrail(tree, path, columns - BANNER_WIDTH - 2);
+  const plant = renderLeafPlant(leafTotal, columns);
+  const trail = renderLeafTrail(tree, path, columns);
 
   const Header = () => (
     <Box flexDirection="column" marginBottom={1} width={columns}>
-      <Box>
-        <Text color="green">{LEAF_BANNER.join('\n')}</Text>
-        <Box flexDirection="column" marginLeft={2} flexGrow={1}>
-          <Box justifyContent="space-between">
-            <Text bold color="cyan">
-              LeafFocus
-            </Text>
-            <Text dimColor>
-              {leafHere > 0 ? `${leafCountLabel(leafHere)} here · ` : ''}
-              {leafCountLabel(leafTotal)} total
-            </Text>
-          </Box>
-          {trail.map((line, i) => (
-            <Text key={i}>
-              {line.map((part, j) => (
-                <Text key={j} {...TRAIL_STYLE[part.kind]}>
-                  {part.text}
-                </Text>
-              ))}
+      <Box justifyContent="space-between">
+        <Text bold color="cyan">
+          LeafFocus
+        </Text>
+        <Text dimColor>
+          {leafHere > 0 ? `${leafCountLabel(leafHere)} here · ` : ''}
+          {leafCountLabel(leafTotal)} total
+        </Text>
+      </Box>
+      <Text color="green">{plant.slice(0, -1).join('\n')}</Text>
+      <Text dimColor>{plant[plant.length - 1]}</Text>
+      {trail.map((line, i) => (
+        <Text key={i}>
+          {line.map((part, j) => (
+            <Text key={j} {...TRAIL_STYLE[part.kind]}>
+              {part.text}
             </Text>
           ))}
-        </Box>
-      </Box>
-      <Text dimColor>{'─'.repeat(columns)}</Text>
+        </Text>
+      ))}
     </Box>
   );
 

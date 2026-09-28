@@ -5,19 +5,40 @@ import type { TreeData } from './types.js';
 export const TRAIL_MAX_CHILDREN = 5;
 /** Max columns for one path label, so a single long segment can't eat the whole trail. */
 export const TRAIL_LABEL_MAX = 18;
-/** Columns kept free on the right for child labels before the path starts collapsing. */
+/** Columns kept free on the right for child labels before the path starts folding. */
 export const TRAIL_CHILD_ROOM = 20;
 
-/** `path` = the way here (and connectors), `current` = where you are, `child` = the next leaves. */
-export type TrailPartKind = 'path' | 'current' | 'child';
+/** Drawn above the stem for each leaf on the path; the current one is filled in. */
+const LEAF_ART = [' ,-. ', '(   )', " `-' "];
+const CURRENT_LEAF_ART = [' ,@. ', '(@@@)', " `@' "];
+const LEAF_ART_WIDTH = 5;
+const COLUMN_GAP = 2;
+/** Rows: 3 of leaf art, the stem, the labels. */
+const STEM_ROW = 3;
+const LABEL_ROW = 4;
+
+/** One small leaf of the header plant, 6 columns wide, on its own piece of stem. */
+const PLANT_CELL = ['  _   ', ' (_)  ', '──┴───'];
+const PLANT_CELL_WIDTH = 6;
+
+/** `stem` = connectors and the way here, `leaf` = leaf art on the path, `current` = where you are, `child` = the next leaves. */
+export type TrailPartKind = 'stem' | 'leaf' | 'current' | 'child';
 
 export interface TrailPart {
   kind: TrailPartKind;
   text: string;
 }
 
-/** One terminal row of the trail, as colored parts in reading order. */
+/** One terminal row, as colored parts in reading order. */
 export type TrailLine = TrailPart[];
+
+/** One path level laid out as a column: leaf art above the stem, label below. */
+interface Column {
+  kind: 'path' | 'current' | 'fold';
+  label: string;
+  x: number;
+  width: number;
+}
 
 /** Short label for a node: the segment it was drilled from, else its question. */
 export function nodeLabel(tree: TreeData, id: string): string {
@@ -33,10 +54,6 @@ function fit(text: string, width: number): string {
   return text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`;
 }
 
-function partsWidth(parts: TrailPart[]): number {
-  return parts.reduce((sum, p) => sum + p.text.length, 0);
-}
-
 /** Cuts a row of parts to `width` columns, keeping each part's kind. */
 function clipParts(parts: TrailPart[], width: number): TrailPart[] {
   const out: TrailPart[] = [];
@@ -50,48 +67,92 @@ function clipParts(parts: TrailPart[], width: number): TrailPart[] {
   return out;
 }
 
-/** `○ root ── …N ── ○ a ── ● b` — the visible path, `hidden` = levels folded after root. */
-function pathParts(tree: TreeData, ids: string[], hidden: number): TrailPart[] {
-  const parts: TrailPart[] = [];
+/** Lays out the visible path left to right; `hidden` levels after root become one `…N` column. */
+function layoutColumns(tree: TreeData, ids: string[], hidden: number): Column[] {
+  const columns: Column[] = [];
+  let x = 0;
+  const add = (kind: Column['kind'], label: string) => {
+    const width = kind === 'fold' ? label.length : Math.max(LEAF_ART_WIDTH, label.length);
+    columns.push({ kind, label, x, width });
+    x += width + COLUMN_GAP;
+  };
   ids.forEach((id, i) => {
-    if (i > 0) parts.push({ kind: 'path', text: ' ── ' });
-    if (hidden > 0 && i === 1) parts.push({ kind: 'path', text: `…${hidden} ── ` });
-    const isCurrent = i === ids.length - 1;
-    const label = fit(nodeLabel(tree, id), TRAIL_LABEL_MAX);
-    parts.push({ kind: isCurrent ? 'current' : 'path', text: `${isCurrent ? '●' : '○'} ${label}` });
+    if (hidden > 0 && i === 1) add('fold', `…${hidden}`);
+    add(i === ids.length - 1 ? 'current' : 'path', fit(nodeLabel(tree, id), TRAIL_LABEL_MAX));
   });
-  return parts;
+  return columns;
+}
+
+/** Columns the path takes, including the bit of stem after the last leaf. */
+function pathWidth(columns: Column[]): number {
+  const last = columns[columns.length - 1] as Column;
+  return last.x + last.width + 1;
 }
 
 /**
- * Horizontal ASCII tree: the path (root → current) grows left to right, and the current leaf
- * branches out to its children on the right. Old levels fold into `…N` so it fits `width`.
+ * The path (root → current) drawn as a vine growing to the right: an ASCII leaf per level above
+ * the stem, its label below, and the current leaf branching out to its children. Old levels fold
+ * into `…N` so it fits `width`.
  */
 export function renderLeafTrail(tree: TreeData, path: string[], width: number): TrailLine[] {
   let hidden = 0;
-  let head = pathParts(tree, path, 0);
+  let columns = layoutColumns(tree, path, 0);
   // fold the oldest levels after root until the path leaves room for the children
-  while (path.length - hidden > 2 && partsWidth(head) > width - TRAIL_CHILD_ROOM) {
+  while (path.length - hidden > 2 && pathWidth(columns) > width - TRAIL_CHILD_ROOM) {
     hidden++;
-    head = pathParts(tree, [path[0] as string, ...path.slice(hidden + 1)], hidden);
+    columns = layoutColumns(tree, [path[0] as string, ...path.slice(hidden + 1)], hidden);
   }
 
   const currentId = path[path.length - 1] as string;
   const children = tree.nodes[currentId] ? getChildren(tree, currentId) : [];
-  const rows = children.slice(0, TRAIL_MAX_CHILDREN).map((child): TrailPart => {
+  const branches = children.slice(0, TRAIL_MAX_CHILDREN).map((child): TrailPart => {
     const count = child.children.length > 0 ? ` (${child.children.length})` : '';
     return { kind: 'child', text: `"${child.question}"${count}` };
   });
-  const overflow = children.length - rows.length;
-  if (overflow > 0) rows.push({ kind: 'path', text: `…${overflow} more` });
+  const overflow = children.length - branches.length;
+  if (overflow > 0) branches.push({ kind: 'stem', text: `…${overflow} more` });
 
-  if (rows.length === 0) return [clipParts(head, width)];
+  const rows: TrailLine[] = Array.from({ length: Math.max(LABEL_ROW + 1, STEM_ROW + branches.length) }, () => []);
+  const lengths = rows.map(() => 0);
+  /** Appends `text` to row `r` starting at column `x`, padding the gap with spaces. */
+  const put = (r: number, x: number, kind: TrailPartKind, text: string) => {
+    const gap = x - (lengths[r] as number);
+    if (gap > 0) rows[r]?.push({ kind: 'stem', text: ' '.repeat(gap) });
+    rows[r]?.push({ kind, text });
+    lengths[r] = Math.max(x, lengths[r] as number) + text.length;
+  };
 
-  const headWidth = partsWidth(head);
-  return rows.map((row, i) => {
-    // every branch is 5 columns wide, with ┬ ├ └ lined up in the same column
-    const branch = rows.length === 1 ? ' ─── ' : i === 0 ? ' ─┬─ ' : i === rows.length - 1 ? '  └─ ' : '  ├─ ';
-    const lead = i === 0 ? head : [{ kind: 'path' as const, text: ' '.repeat(headWidth) }];
-    return clipParts([...lead, { kind: 'path', text: branch }, row], width);
+  const stem = Array.from({ length: pathWidth(columns) }, () => '─');
+  for (const col of columns) {
+    const center = col.x + Math.floor(col.width / 2);
+    put(LABEL_ROW, col.x + Math.floor((col.width - col.label.length) / 2), col.kind === 'current' ? 'current' : 'stem', col.label);
+    if (col.kind === 'fold') continue;
+    const art = col.kind === 'current' ? CURRENT_LEAF_ART : LEAF_ART;
+    art.forEach((line, r) => put(r, center - 2, col.kind === 'current' ? 'current' : 'leaf', line));
+    stem[center] = '┴';
+  }
+  put(STEM_ROW, 0, 'stem', stem.join(''));
+
+  // every branch is 5 columns wide, with ┬ ├ └ lined up in the same column
+  branches.forEach((branch, i) => {
+    const connector =
+      branches.length === 1 ? '──── ' : i === 0 ? '─┬── ' : i === branches.length - 1 ? ' └── ' : ' ├── ';
+    const r = STEM_ROW + i;
+    put(r, pathWidth(columns), 'stem', connector);
+    put(r, pathWidth(columns) + connector.length, branch.kind, branch.text);
   });
+
+  return rows.map((row) => clipParts(row, width));
+}
+
+/**
+ * A plant stem across `width` with one small ASCII leaf per leaf in the tree, so it grows as the
+ * tree does. Leaves that don't fit are counted as `+N`.
+ */
+export function renderLeafPlant(leafCount: number, width: number): string[] {
+  const fits = Math.max(0, Math.floor((width - 4) / PLANT_CELL_WIDTH));
+  const shown = leafCount <= fits ? leafCount : Math.max(0, fits - 1);
+  const rows = PLANT_CELL.map((cell) => cell.repeat(shown));
+  if (shown < leafCount) rows[1] += ` +${leafCount - shown}`;
+  return rows.map((row, r) => (r === 2 ? row.padEnd(width, '─') : row).slice(0, width));
 }
