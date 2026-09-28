@@ -10,6 +10,8 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Vibecoded](https://img.shields.io/badge/vibecoded-%E2%9C%A8-blueviolet)
 
+![leaffocus demo: ask a question, cycle segments, drill into one](docs/demo.gif)
+
 ## Features
 
 - **Focused answers**: one paragraph per question, no walls of text.
@@ -17,12 +19,12 @@ The result is a branching tree of conversation you can navigate, resume, and rev
 - **Drill-down branches**: ask a follow-up about any segment; it becomes a child node.
 - **Persistent sessions**: every run is saved and can be resumed later (`--resume`).
 - **Regenerate, delete, export**: re-ask a leaf, prune a branch, or export the session to Markdown.
-- **Configurable**: choose the model and full-screen mode via `LEAFFOCUS_*` env vars or `.env`.
+- **Configurable**: choose the model and full-screen mode via a YAML file, `LEAFFOCUS_*` env vars or `.env`.
 - **No API key**: uses your logged-in [`claude` CLI](https://docs.claude.com/en/docs/claude-code) in headless mode.
 
 ## Requirements
 
-- [Bun](https://bun.sh) ≥ 1.3
+- [Bun](https://bun.sh) ≥ 1.3 (not needed for the release binaries)
 - The `claude` CLI installed, on your `PATH`, and logged in (`claude login`)
 
 ## Quick start
@@ -34,19 +36,28 @@ bun install
 bun run dev
 ```
 
+## Release binary
+
+Pushing a `v*` tag (e.g. `git tag v0.1.0 && git push origin v0.1.0`) builds standalone binaries for
+Linux, macOS (x64/arm64) and Windows and attaches them, with `leaffocus.example.yaml`, to a GitHub
+Release. No Bun needed to run them — only the `claude` CLI. Build locally with `bun run build`
+(→ `dist/leaffocus`).
+
 ## Configuration
 
-Set via environment variables or a `.env` file (Bun loads it automatically). Copy `.env.example`:
+Set in a YAML file, environment variables, or a `.env` file (Bun loads it automatically). Env vars
+override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
+`~/.config/leaffocus/config.yaml` (global) — copy `leaffocus.example.yaml` or `.env.example`:
 
 ```bash
-cp .env.example .env
+cp leaffocus.example.yaml leaffocus.yaml   # or: cp .env.example .env
 ```
 
-| Variable               | Default     | Effect                                                                                |
-| ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers            |
-| `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
-| `LEAFFOCUS_INSTRUCTIONS` | none      | Standing instructions added to every answer, e.g. `Answer in French.`                 |
+| YAML key     | Variable               | Default     | Effect                                                                                |
+| ------------ | ---------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `model`      | `LEAFFOCUS_MODEL`      | CLI default | Model passed to `claude --model`, e.g. `haiku` for faster, cheaper answers             |
+| `fullscreen` | `LEAFFOCUS_FULLSCREEN` | `false`     | `true` renders full-screen (alternate screen, full height); terminal restored on exit |
+| `instructions` | `LEAFFOCUS_INSTRUCTIONS` | none    | Standing instructions added to every answer, e.g. `Answer in French.`                 |
 
 One-off: `LEAFFOCUS_FULLSCREEN=true bun run dev`.
 
