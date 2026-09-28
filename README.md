@@ -28,6 +28,9 @@ bun run dev --resume   # pick a past session to continue, like `claude -r`
 - type + `Enter` — ask/continue from the highlighted segment (adds a new branch)
 - `Backspace` (input empty) — go back up
 - `q` (input empty) — save and quit
+- `Ctrl+R` — regenerate the current leaf (re-asks its question; the new answer is added as a sibling, the old one is kept)
+- `Ctrl+E` — export the whole session as Markdown to `.segment-tree/exports/<id>.md`
+- On an error: `Esc`/`Enter` returns with your question still typed, so `Enter` retries
 
 ## Storage
 

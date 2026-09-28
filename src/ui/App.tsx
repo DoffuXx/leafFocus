@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { ROOT_ID, addParagraph, getChildrenForSegment, loadTree, saveTree } from '../tree.js';
 import { getParagraph } from '../claude.js';
+import { exportSession } from '../export.js';
 import { splitParagraph } from '../paragraph.js';
 import type { TreeData, TreeNode } from '../types.js';
 
@@ -54,6 +55,8 @@ export default function App({ treeFile }: { treeFile: string }) {
   const [focusMode, setFocusMode] = useState(false);
   const [buffer, setBuffer] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** One-line status message (e.g. export path), cleared on the next keypress. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [pickingChildren, setPickingChildren] = useState<TreeNode[] | null>(null);
   const [pickCursor, setPickCursor] = useState(0);
 
@@ -78,10 +81,12 @@ export default function App({ treeFile }: { treeFile: string }) {
     };
   }, [treeFile]);
 
-  async function submitQuestion(question: string, parentId: string, segment: string | null) {
+  /**
+   * Asks `question` under `parentId` and opens the new leaf at `[...basePath, newId]`.
+   * Buffer and focus are only cleared on success, so after an error the question can be retried.
+   */
+  async function submitQuestion(question: string, parentId: string, segment: string | null, basePath: string[]) {
     setMode('loading');
-    setFocusMode(false);
-    setBuffer('');
     try {
       const parentNode = tree.nodes[parentId];
       const context = parentId === ROOT_ID ? null : { paragraph: parentNode.paragraph, segment };
@@ -92,8 +97,10 @@ export default function App({ treeFile }: { treeFile: string }) {
       setTree(next);
       saveTree(treeFile, next);
 
-      setPath((p) => [...p, newId]);
+      setPath([...basePath, newId]);
       setSegmentCursor(0);
+      setFocusMode(false);
+      setBuffer('');
       setMode('browsing');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -126,12 +133,20 @@ export default function App({ treeFile }: { treeFile: string }) {
     setPickCursor(0);
   }
 
+  /** Re-asks the current leaf's question from its parent, adding a sibling leaf (the old one is kept). */
+  function regenerate(): void {
+    if (!currentNode || currentNodeId === ROOT_ID || !currentNode.parentId) return;
+    void submitQuestion(currentNode.question, currentNode.parentId, currentNode.segment, path.slice(0, -1));
+  }
+
   useInput((input, key) => {
     if (mode === 'error') {
       if (input === 'q') exit();
+      else if (key.escape || key.return) setMode('browsing');
       return;
     }
     if (mode !== 'browsing') return;
+    setNotice(null);
 
     if (pickingChildren) {
       if (key.upArrow) {
@@ -152,6 +167,15 @@ export default function App({ treeFile }: { treeFile: string }) {
       return;
     }
 
+    if (key.ctrl && input === 'e') {
+      setNotice(`Exported to ${exportSession(treeFile, tree)}`);
+      return;
+    }
+    if (key.ctrl && input === 'r') {
+      regenerate();
+      return;
+    }
+
     if (key.tab || key.upArrow || key.downArrow) {
       if (segments.length === 0) return;
       const forward = key.downArrow || (key.tab && !key.shift);
@@ -164,7 +188,7 @@ export default function App({ treeFile }: { treeFile: string }) {
     if (focusMode) {
       if (key.return) {
         if (buffer.trim()) {
-          void submitQuestion(buffer.trim(), currentNodeId, highlightedSegment);
+          void submitQuestion(buffer.trim(), currentNodeId, highlightedSegment, path);
         } else if (highlightedSegment) {
           tryEnterChild(highlightedSegment);
         }
@@ -188,7 +212,7 @@ export default function App({ treeFile }: { treeFile: string }) {
     // conversation view
     if (key.return) {
       if (buffer.trim()) {
-        void submitQuestion(buffer.trim(), currentNodeId, null);
+        void submitQuestion(buffer.trim(), currentNodeId, null, path);
       } else if (highlightedSegment) {
         setFocusMode(true);
       } else {
@@ -264,7 +288,7 @@ export default function App({ treeFile }: { treeFile: string }) {
         <Box borderStyle="round" borderColor="red" paddingX={1}>
           <Text color="red">Error: {error}</Text>
         </Box>
-        <Text dimColor>Press q to quit.</Text>
+        <Text dimColor>Esc/Enter to go back (your question is kept) · q to quit.</Text>
       </Box>
     );
   }
@@ -314,6 +338,7 @@ export default function App({ treeFile }: { treeFile: string }) {
   return (
     <Box flexDirection="column">
       <Header />
+      {currentNode?.question ? <Text dimColor>Q: {currentNode.question}</Text> : null}
       {currentNode?.paragraph ? (
         <Box borderStyle="round" paddingX={1}>
           <Text>
@@ -338,8 +363,10 @@ export default function App({ treeFile }: { treeFile: string }) {
       <Box marginTop={1} flexDirection="column">
         <Text dimColor>
           Tab/↑↓ cycle segment (cyan=new, green=1 leaf, yellow=multiple) · Enter focuses/reopens ·
-          type + Enter ask generally · Backspace back (box empty) · q quit (box empty)
+          type + Enter ask generally · Backspace back (box empty) · Ctrl+R regenerate · Ctrl+E export · q
+          quit (box empty)
         </Text>
+        {notice ? <Text color="green">{notice}</Text> : null}
         <Box borderStyle="round" paddingX={1}>
           <Text>
             {'> '}
