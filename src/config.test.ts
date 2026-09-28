@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadConfigFile, parseConfig } from './config';
+import { globalConfigPath, initConfigFile, loadConfigFile, parseConfig } from './config';
 
 describe('parseConfig', () => {
   test('defaults to CLI default model and inline (non-fullscreen) rendering', () => {
@@ -61,5 +61,31 @@ describe('loadConfigFile', () => {
   test('throws on a wrongly typed value', () => {
     writeFileSync(file, 'fullscreen: maybe\n');
     expect(() => loadConfigFile([file])).toThrow(/Invalid config file/);
+  });
+});
+
+describe('globalConfigPath', () => {
+  test('uses XDG_CONFIG_HOME when set', () => {
+    expect(globalConfigPath({ XDG_CONFIG_HOME: '/xdg' })).toBe(join('/xdg', 'leaffocus', 'config.yaml'));
+  });
+
+  test('falls back to ~/.config', () => {
+    expect(globalConfigPath({})).toEndWith(join('.config', 'leaffocus', 'config.yaml'));
+  });
+});
+
+describe('initConfigFile', () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'leaffocus-init-')), 'leaffocus', 'config.yaml');
+
+  test('creates the file and its folder from the embedded example, which loads cleanly', () => {
+    expect(initConfigFile(file)).toBe(true);
+    expect(readFileSync(file, 'utf8')).toContain('fullscreen: false');
+    expect(loadConfigFile([file])).toEqual({ fullscreen: false });
+  });
+
+  test('never overwrites an existing file', () => {
+    writeFileSync(file, 'model: haiku\n');
+    expect(initConfigFile(file, 'model: opus\n')).toBe(false);
+    expect(readFileSync(file, 'utf8')).toBe('model: haiku\n');
   });
 });

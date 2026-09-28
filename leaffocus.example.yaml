@@ -1,4 +1,5 @@
-# leafFocus config. Copy to ./leaffocus.yaml (per project) or ~/.config/leaffocus/config.yaml (global).
+# leafFocus config. Copy to ./leaffocus.yaml (per project) or ~/.config/leaffocus/config.yaml (global);
+# `leaffocus --init` creates the global one for you.
 # All settings are optional; LEAFFOCUS_* env vars (or .env) override these.
 
 # Model passed to `claude --model`, e.g. haiku, sonnet, opus. Omit for the claude CLI's default.

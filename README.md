@@ -48,7 +48,8 @@ Release. No Bun needed to run them — only the `claude` CLI. Build locally with
 
 Set with command-line flags, environment variables, a `.env` file (Bun loads it automatically), or a
 YAML file. Flags override env vars, which override the YAML file. The YAML file is the first found of `./leaffocus.yaml` (per project) and
-`~/.config/leaffocus/config.yaml` (global) — copy `leaffocus.example.yaml` or `.env.example`:
+`~/.config/leaffocus/config.yaml` (global; `$XDG_CONFIG_HOME/leaffocus/config.yaml` if set). Installed a binary? Run
+`leaffocus --init` to create the global file from the example, then edit it. From source, copy `leaffocus.example.yaml` or `.env.example`:
 
 ```bash
 cp leaffocus.example.yaml leaffocus.yaml   # or: cp .env.example .env
@@ -74,12 +75,11 @@ With a release binary, use `leaffocus [flags]` instead of `bun run dev`.
 
 ### Header
 
-- **Vine** — one stem through the middle growing to the right like a tree branch: a veined ASCII
-  leaf per level of the path from `root` to where you are (the current one filled in), alternating
-  above and below the stem with its label on the outside, then one small leaf per leaf in the
-  session, so it grows as your tree does (`+N` when they no longer fit), and finally the current
-  leaf branching out to its next leaves (`(n)` = how many leaves each of those has). When the path
-  gets too wide, old levels fold into `…N` on the stem.
+- **Vine** — the whole session as one ASCII branch of fixed size growing left to right: every leaf
+  you ask is appended (`/^\` above, `\v/` below the stem, alternating), the path to where you are
+  is green, the current leaf is filled in (`#`), and a dotted stem (`╌`) shows room to grow. When
+  it no longer fits, the view slides to keep the current leaf in sight, with `…N` / `+N` counting
+  the leaves cut off on each side.
 
 ### Keys
 
@@ -131,7 +131,7 @@ a request.
 ```
 index.tsx           # entry point
 src/
-  cli.ts            # command-line flags (--help, --version, --resume, config overrides)
+  cli.ts            # command-line flags (--help, --version, --init, --resume, config overrides)
   claude.ts         # prompt building, CLI call, output parsing/validation
   config.ts         # flags / LEAFFOCUS_* env / YAML configuration
   export.ts         # Markdown export
@@ -140,7 +140,7 @@ src/
   tree.ts           # tree data model + load/save
   session.ts        # session files + resume picker data
   paragraph.ts      # splits a paragraph into plain/segment spans for rendering
-  trail.ts          # ASCII header: one vine (leaf trail + growing plant)
+  trail.ts          # ASCII header: the session as one growing vine
   log.ts            # JSON-lines debug log
   types.ts          # shared types
   ui/Root.tsx       # session picker vs. running app
