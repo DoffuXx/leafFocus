@@ -172,6 +172,16 @@ describe('removeNode', () => {
     expect(countLeaves(tree)).toBe(2);
   });
 
+  test("doesn't drop a sibling when the parent doesn't list the node", () => {
+    const tree = createEmptyTree();
+    const a = addParagraph(tree, ROOT_ID, null, 'q1', { paragraph: 'p1', segments: ['p1'] });
+    const orphan = addParagraph(tree, ROOT_ID, null, 'q2', { paragraph: 'p2', segments: ['p2'] });
+    tree.nodes[ROOT_ID]?.children.pop(); // simulate an inconsistent saved file
+
+    expect(removeNode(tree, orphan)).toBe(1);
+    expect(tree.nodes[ROOT_ID]?.children).toEqual([a]);
+  });
+
   test('never removes the root', () => {
     const tree = createEmptyTree();
     expect(removeNode(tree, ROOT_ID)).toBe(0);

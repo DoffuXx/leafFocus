@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, type Config } from './config.js';
 import { appendLog } from './log.js';
+import { splitParagraph } from './paragraph.js';
 import type { ParagraphResult, Usage } from './types.js';
 
 /**
@@ -75,13 +76,15 @@ export function buildPrompt(
 }
 
 /**
- * `claude --output-format json` prints a JSON array of event objects (e.g. a `system`
- * init event followed by the final `result` event), not a single envelope object.
- * Pulls the result event out of that array, validates the shape, and keeps only segments
- * that are actual verbatim substrings of the paragraph (models sometimes paraphrase).
+ * `claude --output-format json` prints either a single `result` envelope object (current CLI) or,
+ * in older/verbose versions, a JSON array of event objects ending with the `result` event.
+ * Pulls the result event out, validates the shape, and keeps only segments that appear verbatim
+ * in the paragraph, in reading order (models sometimes paraphrase or reorder) — the same rule
+ * `splitParagraph` renders with, so every kept segment is visible and selectable.
  */
 export function parseParagraphOutput(stdout: string): ParagraphResult {
-  const events = JSON.parse(stdout) as unknown[];
+  const parsed: unknown = JSON.parse(stdout);
+  const events: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
   const resultEvent = events.find(
     (e): e is CliResultEvent => typeof e === 'object' && e !== null && (e as { type?: unknown }).type === 'result'
   );
@@ -95,7 +98,9 @@ export function parseParagraphOutput(stdout: string): ParagraphResult {
   const payload = resultEvent.structured_output ?? JSON.parse(resultEvent.result ?? 'null');
   const { paragraph, segments } = responseSchema.parse(payload);
 
-  const verbatimSegments = segments.filter((s) => paragraph.includes(s));
+  const verbatimSegments = splitParagraph(paragraph, segments)
+    .filter((span) => span.segmentIndex !== null)
+    .map((span) => span.text);
   if (verbatimSegments.length === 0) {
     throw new Error('none of the returned segments appear verbatim in the paragraph');
   }

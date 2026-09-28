@@ -141,6 +141,32 @@ describe('parseParagraphOutput', () => {
     expect(() => parseParagraphOutput(stdout)).toThrow('verbatim');
   });
 
+  test('accepts a single result envelope object (current CLI output)', () => {
+    const stdout = JSON.stringify({
+      type: 'result',
+      is_error: false,
+      structured_output: { paragraph: 'Segment trees support range queries.', segments: ['range queries'] },
+      duration_ms: 1200,
+      total_cost_usd: 0.002,
+    });
+
+    expect(parseParagraphOutput(stdout)).toEqual({
+      paragraph: 'Segment trees support range queries.',
+      segments: ['range queries'],
+      usage: { durationMs: 1200, costUsd: 0.002 },
+    });
+  });
+
+  test('drops segments that are out of reading order so every kept one is renderable', () => {
+    const stdout = JSON.stringify({
+      type: 'result',
+      is_error: false,
+      structured_output: { paragraph: 'Alpha beta. Gamma delta.', segments: ['Gamma delta.', 'Alpha beta.'] },
+    });
+
+    expect(parseParagraphOutput(stdout).segments).toEqual(['Gamma delta.']);
+  });
+
   test('throws when no result event is present', () => {
     const stdout = JSON.stringify([{ type: 'system', subtype: 'init' }]);
 

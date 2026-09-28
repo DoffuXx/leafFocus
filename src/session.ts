@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { countLeaves, loadTree } from './tree.js';
+import type { TreeData } from './types.js';
 
 export const SESSIONS_DIR = '.segment-tree/sessions';
 
@@ -18,7 +19,7 @@ export interface SessionSummary {
   leafCount: number;
 }
 
-/** Past sessions with at least one question asked, newest first — for a `claude -r`-style picker. */
+/** Past sessions with at least one question asked, newest first — for a `claude -r`-style picker. Unreadable files are skipped. */
 export function listSessions(dir: string = SESSIONS_DIR): SessionSummary[] {
   if (!existsSync(dir)) return [];
 
@@ -26,7 +27,12 @@ export function listSessions(dir: string = SESSIONS_DIR): SessionSummary[] {
     .filter((f) => f.endsWith('.json'))
     .map((f) => {
       const file = join(dir, f);
-      const tree = loadTree(file);
+      let tree: TreeData;
+      try {
+        tree = loadTree(file);
+      } catch {
+        return null; // corrupt/partial JSON must not break the whole picker
+      }
       const firstChildId = tree.nodes[tree.rootId]?.children[0];
       const title = firstChildId ? tree.nodes[firstChildId]?.question || '(untitled)' : null;
       return title ? { file, updatedAt: statSync(file).mtime, title, leafCount: countLeaves(tree) } : null;

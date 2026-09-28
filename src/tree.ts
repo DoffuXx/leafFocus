@@ -55,8 +55,10 @@ export function removeNode(tree: TreeData, nodeId: string): number {
   if (!node || nodeId === tree.rootId) return 0;
 
   if (node.parentId) {
-    const siblings = tree.nodes[node.parentId].children;
-    siblings.splice(siblings.indexOf(nodeId), 1);
+    const siblings = tree.nodes[node.parentId]?.children ?? [];
+    const index = siblings.indexOf(nodeId);
+    // guard: splice(-1, 1) would drop the last sibling instead
+    if (index >= 0) siblings.splice(index, 1);
   }
   let removed = 0;
   const drop = (id: string): void => {
